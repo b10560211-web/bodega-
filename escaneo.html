@@ -6,23 +6,74 @@
   <title>Escáner de bodega</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background: #212529; color: white; }
-    .scanner-container { max-width: 400px; margin: auto; padding: 20px; }
-    #reader { width: 100%; border-radius: 15px; overflow: hidden; margin-bottom: 15px; background: #000; }
-    .card { background: #343a40; border: none; }
-    .btn-detener { display: none; }
-    .resultado { background: #198754; padding: 10px; border-radius: 8px; }
-    .error { background: #dc3545; padding: 10px; border-radius: 8px; }
-    .warning { background: #ffc107; color: #000; padding: 10px; border-radius: 8px; }
+    body {
+      background: #212529;
+      color: white;
+      touch-action: manipulation; /* mejora respuesta táctil */
+    }
+    .scanner-container {
+      max-width: 400px;
+      margin: auto;
+      padding: 20px;
+    }
+    #reader {
+      width: 100%;
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 15px;
+      background: #000;
+      position: relative;
+    }
+    /* Línea guía animada */
+    #reader::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      width: 80%;
+      height: 2px;
+      background: rgba(0, 255, 0, 0.7);
+      box-shadow: 0 0 8px rgba(0,255,0,0.5);
+      z-index: 10;
+      animation: scan-line 2s ease-in-out infinite alternate;
+    }
+    @keyframes scan-line {
+      from { transform: translateY(-15px); }
+      to { transform: translateY(15px); }
+    }
+    .card {
+      background: #343a40;
+      border: none;
+    }
+    .btn-detener, .btn-linterna {
+      display: none;
+    }
+    .resultado {
+      background: #198754;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .error {
+      background: #dc3545;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .warning {
+      background: #ffc107;
+      color: #000;
+      padding: 10px;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
   <div class="scanner-container">
-    <h2 class="text-center mb-3">📷 Escáner de productos</h2>
+    <h2 class="text-center mb-3">📷 Escáner inteligente</h2>
     <div id="reader"></div>
-    <div class="d-grid gap-2">
+    <div class="d-grid gap-2 mb-2">
       <button id="btn-iniciar" class="btn btn-primary btn-lg">▶️ Iniciar cámara</button>
       <button id="btn-detener" class="btn btn-outline-danger btn-detener">⏹️ Detener</button>
+      <button id="btn-linterna" class="btn btn-outline-warning btn-linterna">🔦 Linterna</button>
     </div>
     <div id="status-message"></div>
     <div id="resultado-escaneo" class="mt-3"></div>
@@ -43,102 +94,172 @@
     </div>
   </div>
 
-  <!-- Librerías (cargar solo una vez) -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <!-- Librerías (versiones fijas para evitar sorpresas) -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
-    // IIFE para evitar cualquier conflicto de variables globales
     (function() {
-      console.log('🚀 Nueva versión de escáner cargada (v2)');
+      console.log('🚀 Escáner inteligente v2.3.8 cargado');
 
-      // Verificar librerías
+      // Verificar dependencias
       if (typeof Html5Qrcode === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Librería de cámara no disponible. Recarga la página.</div>';
+        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error al cargar librería de cámara. Recarga.</div>';
         return;
       }
       if (typeof window.supabase === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Librería de Supabase no disponible.</div>';
+        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error al cargar Supabase.</div>';
         return;
       }
 
       const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
-      // No declaramos 'supabase' en global, lo guardamos localmente
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       let html5QrCode = null;
       let productoActual = null;
+      let linternaEncendida = false;
 
       const btnIniciar = document.getElementById('btn-iniciar');
       const btnDetener = document.getElementById('btn-detener');
+      const btnLinterna = document.getElementById('btn-linterna');
       const statusMsg = document.getElementById('status-message');
       const resultadoDiv = document.getElementById('resultado-escaneo');
       const formDiv = document.getElementById('form-entrada');
 
-      // Verificar contexto seguro
+      // Formatos de código de barras a leer
+      const formatsToSupport = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.QR_CODE, // por si acaso
+      ];
+
+      // Verificar si HTTPS (GitHub Pages ya lo es)
       if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        statusMsg.innerHTML = '<div class="warning">⚠️ La cámara requiere HTTPS. Este sitio es GitHub Pages (HTTPS), debería funcionar.</div>';
-        btnIniciar.disabled = true;
+        statusMsg.innerHTML = '<div class="warning">⚠️ La cámara requiere HTTPS. Estás en un sitio seguro, debería funcionar.</div>';
+      }
+
+      // Detener cámara
+      async function stopCamera() {
+        if (html5QrCode && (html5QrCode.isScanning || html5QrCode.getState && html5QrCode.getState() === 2)) {
+          try {
+            await html5QrCode.stop();
+          } catch (e) {
+            console.warn('Error al detener:', e);
+          }
+        }
+        html5QrCode = null;
+        btnIniciar.style.display = 'block';
+        btnDetener.style.display = 'none';
+        btnLinterna.style.display = 'none';
+        linternaEncendida = false;
+        btnLinterna.textContent = '🔦 Linterna';
+      }
+
+      // Encender/apagar linterna (torch)
+      async function toggleTorch() {
+        if (!html5QrCode || !html5QrCode.isScanning) return;
+        try {
+          const capabilities = html5QrCode.getRunningTrackCapabilities();
+          if (capabilities && capabilities.torch) {
+            if (linternaEncendida) {
+              await html5QrCode.applyVideoConstraints({ advanced: [{ torch: false }] });
+              linternaEncendida = false;
+              btnLinterna.textContent = '🔦 Linterna';
+            } else {
+              await html5QrCode.applyVideoConstraints({ advanced: [{ torch: true }] });
+              linternaEncendida = true;
+              btnLinterna.textContent = '💡 Apagar linterna';
+            }
+          } else {
+            alert('Tu dispositivo no soporta linterna.');
+          }
+        } catch (e) {
+          console.error('Error con linterna:', e);
+          alert('No se pudo controlar la linterna.');
+        }
       }
 
       // Iniciar cámara
-      async function iniciarCamara() {
-        try {
-          if (html5QrCode) {
-            await html5QrCode.stop().catch(() => {});
-            html5QrCode = null;
-          }
-          statusMsg.innerHTML = '';
-          resultadoDiv.innerHTML = '';
-          formDiv.style.display = 'none';
+      async function startCamera() {
+        await stopCamera(); // limpieza previa
+        statusMsg.innerHTML = '';
+        resultadoDiv.innerHTML = '';
+        formDiv.style.display = 'none';
+        productoActual = null;
 
+        try {
           html5QrCode = new Html5Qrcode("reader");
-          const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+          const config = {
+            fps: 10,
+            qrbox: { width: 280, height: 100 }, // rectángulo alargado para códigos de barras
+            aspectRatio: 1.777,
+            formatsToSupport: formatsToSupport,
+          };
 
           await html5QrCode.start(
             { facingMode: "environment" },
             config,
-            (decodedText) => {
+            (decodedText, decodedResult) => {
+              // ¡Escaneo exitoso!
+              // Vibrar si está disponible
+              if (navigator.vibrate) navigator.vibrate(200);
+
+              // Detener cámara inmediatamente
               html5QrCode.stop().then(() => {
                 btnIniciar.style.display = 'block';
                 btnDetener.style.display = 'none';
+                btnLinterna.style.display = 'none';
+                linternaEncendida = false;
+                // Buscar producto
                 buscarProducto(decodedText);
-              });
+              }).catch(err => console.warn('Error al detener tras escaneo:', err));
             },
-            () => {} // ignorar errores de escaneo
+            (errorMessage) => {
+              // Ignorar errores de escaneo continuo (no mostrar en pantalla para no molestar)
+            }
           );
 
           btnIniciar.style.display = 'none';
           btnDetener.style.display = 'block';
-          statusMsg.innerHTML = '<div class="text-info">🔍 Escaneando... Apunta a un código de barras.</div>';
+          // Mostrar botón linterna si la cámara lo soporta
+          try {
+            const track = html5QrCode.getRunningTrackCapabilities();
+            if (track && track.torch) {
+              btnLinterna.style.display = 'block';
+            }
+          } catch (e) {}
+          statusMsg.innerHTML = '<div class="text-info">🔍 Escaneando código de barras... Apunta al código.</div>';
         } catch (err) {
-          console.error('Error cámara:', err);
+          console.error('Error al iniciar cámara:', err);
           let msg = 'Error al iniciar cámara.';
-          if (err.name === 'NotAllowedError') msg = 'Permiso de cámara denegado. Actívalo en configuración del navegador.';
-          else if (err.name === 'NotFoundError') msg = 'No se encontró cámara.';
+          if (err.name === 'NotAllowedError') msg = 'Permiso de cámara denegado. Actívalo en ajustes del navegador.';
+          else if (err.name === 'NotFoundError') msg = 'No se encontró cámara trasera.';
+          else msg = err.message || msg;
           statusMsg.innerHTML = `<div class="error">❌ ${msg}</div>`;
           btnIniciar.style.display = 'block';
           btnDetener.style.display = 'none';
+          btnLinterna.style.display = 'none';
         }
       }
 
-      btnIniciar.addEventListener('click', iniciarCamara);
+      btnIniciar.addEventListener('click', startCamera);
+      btnDetener.addEventListener('click', stopCamera);
+      btnLinterna.addEventListener('click', toggleTorch);
 
-      btnDetener.addEventListener('click', async () => {
-        if (html5QrCode && html5QrCode.isScanning) {
-          await html5QrCode.stop().catch(() => {});
-          btnIniciar.style.display = 'block';
-          btnDetener.style.display = 'none';
-          statusMsg.innerHTML = '<div class="text-muted">Cámara detenida.</div>';
-        }
-      });
-
+      // Buscar producto en Supabase
       async function buscarProducto(codigo) {
         try {
           const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).single();
           if (error || !data) {
-            resultadoDiv.innerHTML = `<div class="error">❌ Código no encontrado: ${codigo}</div>`;
+            resultadoDiv.innerHTML = `<div class="error">❌ Código "${codigo}" no encontrado. <button class="btn btn-sm btn-outline-light ms-2" onclick="window.escaneoRetry()">Reintentar escaneo</button></div>`;
             productoActual = null;
             formDiv.style.display = 'none';
             return;
@@ -154,6 +275,12 @@
         }
       }
 
+      // Función global para reintentar escaneo desde el mensaje de error
+      window.escaneoRetry = function() {
+        startCamera();
+      };
+
+      // Guardar entrada
       document.getElementById('guardar-movil').addEventListener('click', async () => {
         if (!productoActual) return;
         const cantidad = parseInt(document.getElementById('cantidad-movil').value);
@@ -185,7 +312,7 @@
         btnIniciar.style.display = 'block';
       });
 
-      // Al cargar
+      // Ajuste inicial
       window.addEventListener('load', () => {
         btnIniciar.style.display = 'block';
       });
