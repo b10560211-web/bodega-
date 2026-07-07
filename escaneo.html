@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Escáner de bodega</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { background: #212529; color: white; }
+    .scanner-container { max-width: 400px; margin: auto; padding: 20px; }
+    #reader { width: 100%; border-radius: 15px; overflow: hidden; margin-bottom: 15px; }
+    .card { background: #343a40; border: none; }
+    .btn-detener { display: none; }
+    .resultado { background: #198754; padding: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="scanner-container">
+    <h2 class="text-center mb-3"><i class="bi bi-camera"></i> Escáner</h2>
+    <div id="reader"></div>
+    <div class="d-grid gap-2">
+      <button id="btn-iniciar" class="btn btn-primary btn-lg">📷 Iniciar cámara</button>
+      <button id="btn-detener" class="btn btn-outline-danger btn-detener">⏹️ Detener</button>
+    </div>
+
+    <div id="resultado-escaneo" class="mt-3"></div>
+
+    <!-- Formulario de entrada -->
+    <div id="form-entrada" class="card mt-3 p-3" style="display: none;">
+      <h5 class="text-success">Producto encontrado</h5>
+      <p id="nombre-producto" class="fw-bold"></p>
+      <div class="mb-2">
+        <label class="form-label">Cantidad</label>
+        <input type="number" id="cantidad-movil" class="form-control" min="1" value="1">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Precio unitario ($)</label>
+        <input type="number" id="precio-movil" class="form-control" step="0.01" min="0" value="0.00">
+      </div>
+      <button id="guardar-movil" class="btn btn-success w-100">💾 Registrar entrada</button>
+      <button id="cancelar-movil" class="btn btn-outline-light w-100 mt-2">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let html5QrCode;
+    let productoActual = null;
+
+    document.getElementById('btn-iniciar').addEventListener('click', () => {
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+          html5QrCode.stop().then(() => {
+            document.getElementById('btn-iniciar').style.display = 'none';
+            document.getElementById('btn-detener').style.display = 'none';
+            buscarProducto(decodedText);
+          });
+        },
+        () => {}
+      ).then(() => {
+        document.getElementById('btn-iniciar').style.display = 'none';
+        document.getElementById('btn-detener').style.display = 'block';
+      }).catch(err => alert('Error de cámara: ' + err));
+    });
+
+    document.getElementById('btn-detener').addEventListener('click', () => {
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
+          document.getElementById('btn-iniciar').style.display = 'block';
+          document.getElementById('btn-detener').style.display = 'none';
+        });
+      }
+    });
+
+    async function buscarProducto(codigo) {
+      const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
+      const resultadoDiv = document.getElementById('resultado-escaneo');
+      const formDiv = document.getElementById('form-entrada');
+      if (error || !data) {
+        resultadoDiv.innerHTML = `<div class="alert alert-danger">❌ Código no encontrado: ${codigo}</div>`;
+        productoActual = null;
+        formDiv.style.display = 'none';
+        document.getElementById('btn-iniciar').style.display = 'block';
+        return;
+      }
+      productoActual = data;
+      resultadoDiv.innerHTML = `<div class="resultado">✅ ${data.nombre} (Ref: $${parseFloat(data.precio_compra).toFixed(2)})</div>`;
+      document.getElementById('nombre-producto').textContent = data.nombre;
+      document.getElementById('precio-movil').value = data.precio_compra || 0;
+      formDiv.style.display = 'block';
+    }
+
+    document.getElementById('guardar-movil').addEventListener('click', async () => {
+      if (!productoActual) return;
+      const cantidad = parseInt(document.getElementById('cantidad-movil').value);
+      const precio = parseFloat(document.getElementById('precio-movil').value);
+      if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
+      if (isNaN(precio) || precio <= 0) return alert('Precio inválido');
+
+      const { error } = await supabase.from('entradas_inventario').insert({
+        producto_id: productoActual.id,
+        cantidad,
+        precio_unitario: precio
+      });
+
+      if (error) {
+        alert('Error al guardar: ' + error.message);
+      } else {
+        alert(`✅ Entrada guardada: ${cantidad} ud. de "${productoActual.nombre}"`);
+        productoActual = null;
+        document.getElementById('form-entrada').style.display = 'none';
+        document.getElementById('resultado-escaneo').innerHTML = '';
+        document.getElementById('btn-iniciar').style.display = 'block';
+      }
+    });
+
+    document.getElementById('cancelar-movil').addEventListener('click', () => {
+      productoActual = null;
+      document.getElementById('form-entrada').style.display = 'none';
+      document.getElementById('resultado-escaneo').innerHTML = '';
+      document.getElementById('btn-iniciar').style.display = 'block';
+    });
+  </script>
+</body>
+</html>
