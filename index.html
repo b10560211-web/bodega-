@@ -12,24 +12,34 @@
     .table th { background: #0d6efd; color: white; }
     .qr-container { display: flex; flex-direction: column; align-items: center; }
     .qr-box { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 130px; }
+    .tasa-bcv { font-size: 0.9rem; background: #e9ecef; padding: 5px 10px; border-radius: 4px; display: inline-block; }
   </style>
 </head>
 <body>
   <div class="container py-4">
-    <div class="d-flex align-items-center mb-4">
+    <div class="d-flex align-items-center mb-3">
       <i class="bi bi-box-seam fs-1 me-3 text-primary"></i>
-      <h1 class="fw-bold">Gestión de Bodega</h1>
+      <h1 class="fw-bold me-3">Gestión de Bodega</h1>
+      <span id="tasa-actual" class="tasa-bcv">Cargando tasa BCV...</span>
     </div>
 
+    <!-- Catálogo con stock y precio venta Bs -->
     <div class="card mb-4">
       <div class="card-header bg-primary text-white fw-semibold">
-        <i class="bi bi-list-ul me-2"></i>Catálogo de productos
+        <i class="bi bi-list-ul me-2"></i>Productos en inventario
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="tabla-productos">
             <thead>
-              <tr><th>ID</th><th>Código de barras</th><th>Nombre</th><th>Último Costo ($)</th></tr>
+              <tr>
+                <th>ID</th>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Stock (uds.)</th>
+                <th>Precio Ref. ($)</th>
+                <th>Precio Venta (Bs)</th>
+              </tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -37,12 +47,12 @@
       </div>
     </div>
 
+    <!-- Entrada manual -->
     <div class="card mb-4">
       <div class="card-header bg-success text-white fw-semibold">
-        <i class="bi bi-plus-circle me-2"></i>Registrar entrada o nuevo producto
+        <i class="bi bi-plus-circle me-2"></i>Registrar entrada manual
       </div>
       <div class="card-body">
-        
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">Código de barras</label>
@@ -55,39 +65,22 @@
             <div id="producto-encontrado" class="fw-bold pt-2"></div>
           </div>
           <div class="col-md-2">
-            <label class="form-label">Cantidad a ingresar</label>
+            <label class="form-label">Cantidad</label>
             <input type="number" class="form-control" id="cantidad-input" min="1" value="1">
           </div>
           <div class="col-md-2">
-            <label class="form-label">Costo unitario ($)</label>
+            <label class="form-label">Precio unitario ($)</label>
             <input type="number" class="form-control" id="precio-input" step="0.01" min="0" value="0.00">
           </div>
           <div class="col-md-1 d-grid">
-            <button class="btn btn-success" id="registrar-btn" disabled title="Guardar Entrada"><i class="bi bi-save"></i></button>
+            <button class="btn btn-success" id="registrar-btn" disabled title="Guardar"><i class="bi bi-save"></i></button>
           </div>
         </div>
-
-        <div id="form-nuevo-producto" class="row g-3 mt-3" style="display: none; background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffe69c;">
-          <div class="col-12">
-            <h6 class="text-warning-emphasis mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Producto no registrado. Complete los datos para agregarlo a la base de datos:</h6>
-          </div>
-          <div class="col-md-5">
-            <label class="form-label text-dark">Nombre del producto *</label>
-            <input type="text" class="form-control border-warning" id="nuevo-nombre" placeholder="Ej. Refresco 2L">
-          </div>
-          <div class="col-md-5">
-            <label class="form-label text-dark">Descripción (Opcional)</label>
-            <input type="text" class="form-control border-warning" id="nuevo-desc" placeholder="Marca, detalles...">
-          </div>
-          <div class="col-md-2 d-flex align-items-end">
-            <button class="btn btn-warning w-100 fw-bold" id="crear-producto-btn">Crear producto</button>
-          </div>
-        </div>
-
-        <div id="mensaje" class="mt-3"></div>
+        <div id="mensaje" class="mt-2"></div>
       </div>
     </div>
 
+    <!-- Enlace al teléfono -->
     <div class="card">
       <div class="card-header text-white fw-semibold" style="background: #6f42c1;">
         <i class="bi bi-phone me-2"></i>Escáner móvil
@@ -110,189 +103,158 @@
     </div>
   </div>
 
+  <!-- Dependencias -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <script>
     (function() {
-      // ── Configuración Supabase ──
       const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      
+
       let productoSeleccionado = null;
-      let codigoBuscado = ""; // Almacena el código que no se encontró
+      let tasaDolar = null; // se actualizará cada 10 min
 
-      // Elementos del DOM
-      const btnReg = document.getElementById('registrar-btn');
-      const infoDiv = document.getElementById('producto-encontrado');
-      const formNuevoProducto = document.getElementById('form-nuevo-producto');
-      const msg = document.getElementById('mensaje');
-
-      // ── Catálogo ──
-      async function cargarProductos() {
+      // ──────── TASA BCV ────────
+      async function actualizarTasaBCV() {
         try {
-          // Ordenados por el ID de forma descendente para ver los más nuevos arriba
-          const { data, error } = await supabase.from('productos').select('*').order('id', { ascending: false });
-          if (error) throw error;
-          const tbody = document.querySelector('#tabla-productos tbody');
-          tbody.innerHTML = data.map(p => `
-            <tr>
-              <td>${p.id}</td>
-              <td><span class="badge bg-secondary">${p.codigo_barras}</span></td>
-              <td class="fw-semibold">${p.nombre}</td>
-              <td class="text-success fw-bold">$${parseFloat(p.precio_compra || 0).toFixed(2)}</td>
-            </tr>`).join('');
+          const resp = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+          if (!resp.ok) throw new Error('Error al obtener tasa');
+          const data = await resp.json();
+          tasaDolar = parseFloat(data.promedio); // asumiendo que existe "promedio"
+          document.getElementById('tasa-actual').textContent =
+            `Dólar BCV: Bs ${tasaDolar.toFixed(2)} | Venta sugerida: +3% (Bs ${(tasaDolar * 1.03).toFixed(2)})`;
+          // Recargar la tabla para que se actualicen los precios en Bs
+          cargarProductos();
         } catch (err) {
-          console.error('Error al cargar productos:', err);
+          console.error('Error tasa BCV:', err);
+          document.getElementById('tasa-actual').textContent = 'Tasa BCV no disponible';
         }
       }
 
-      // ── Buscar producto ──
-      document.getElementById('buscar-btn').addEventListener('click', async () => {
-        const codigo = document.getElementById('barcode-input').value.trim();
-        msg.innerHTML = ''; // limpiar mensajes
-        if (!codigo) return alert('Ingrese un código de barras');
-        
+      // Llamar al cargar y luego cada 10 minutos
+      actualizarTasaBCV();
+      setInterval(actualizarTasaBCV, 600000); // 10 min
+
+      // ──────── CARGAR CATÁLOGO CON STOCK ────────
+      async function cargarProductos() {
         try {
-          const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
-          
-          if (error || !data) {
-            // NO ENCONTRADO -> Mostrar formulario de creación
-            infoDiv.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> No encontrado</span>';
-            productoSeleccionado = null;
-            btnReg.disabled = true;
-            
-            codigoBuscado = codigo; // Guardamos el código para crearlo
-            formNuevoProducto.style.display = 'flex'; // Mostramos el panel amarillo
-            document.getElementById('nuevo-nombre').focus();
+          // Obtener todos los productos
+          const { data: productos, error: errorProd } = await supabase
+            .from('productos')
+            .select('*')
+            .order('id');
+          if (errorProd) throw errorProd;
+
+          // Obtener sumatoria de entradas por producto
+          const { data: entradas, error: errorEnt } = await supabase
+            .from('entradas_inventario')
+            .select('producto_id, cantidad');
+          if (errorEnt) throw errorEnt;
+
+          // Calcular stock por producto
+          const stockMap = {};
+          entradas.forEach(e => {
+            stockMap[e.producto_id] = (stockMap[e.producto_id] || 0) + e.cantidad;
+          });
+
+          const tbody = document.querySelector('#tabla-productos tbody');
+          if (!productos.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay productos registrados</td></tr>';
             return;
           }
-          
-          // ENCONTRADO -> Flujo normal
+
+          tbody.innerHTML = productos.map(p => {
+            const stock = stockMap[p.id] || 0;
+            const precioUSD = parseFloat(p.precio_compra);
+            let precioBs = '—';
+            if (tasaDolar && precioUSD > 0) {
+              const ventaBs = precioUSD * tasaDolar * 1.03;
+              precioBs = `Bs ${ventaBs.toFixed(2)}`;
+            }
+            return `
+              <tr>
+                <td>${p.id}</td>
+                <td>${p.codigo_barras}</td>
+                <td>${p.nombre}</td>
+                <td><strong>${stock}</strong></td>
+                <td>$${precioUSD.toFixed(2)}</td>
+                <td>${precioBs}</td>
+              </tr>`;
+          }).join('');
+
+        } catch (err) {
+          console.error('Error al cargar productos:', err);
+          document.querySelector('#tabla-productos tbody').innerHTML =
+            '<tr><td colspan="6" class="text-danger text-center">Error al cargar datos</td></tr>';
+        }
+      }
+
+      // ──────── BÚSQUEDA MANUAL ────────
+      document.getElementById('buscar-btn').addEventListener('click', async () => {
+        const codigo = document.getElementById('barcode-input').value.trim();
+        if (!codigo) return alert('Ingrese un código');
+        try {
+          const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
+          const infoDiv = document.getElementById('producto-encontrado');
+          const btnReg = document.getElementById('registrar-btn');
+          if (error || !data) {
+            infoDiv.innerHTML = '<span class="text-danger">❌ Producto no encontrado</span>';
+            productoSeleccionado = null;
+            btnReg.disabled = true;
+            return;
+          }
           productoSeleccionado = data;
-          formNuevoProducto.style.display = 'none'; // Ocultamos panel amarillo si estaba abierto
-          infoDiv.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill"></i> ${data.nombre}</span><br><small class="text-muted">Costo ant: $${parseFloat(data.precio_compra||0).toFixed(2)}</small>`;
-          
-          // Autocompletar el precio con el último precio de compra para facilitar el registro
-          document.getElementById('precio-input').value = data.precio_compra || 0;
+          infoDiv.innerHTML = `<span class="text-success">✅ ${data.nombre} (Ref: $${parseFloat(data.precio_compra).toFixed(2)})</span>`;
           btnReg.disabled = false;
-          
         } catch (err) {
           console.error('Error al buscar:', err);
         }
       });
 
-      // ── Crear nuevo producto ──
-      document.getElementById('crear-producto-btn').addEventListener('click', async () => {
-        const nombre = document.getElementById('nuevo-nombre').value.trim();
-        const desc = document.getElementById('nuevo-desc').value.trim();
-        
-        if (!nombre) return alert('El nombre del producto es obligatorio');
-
-        try {
-          // Insertamos y pedimos que nos devuelva la fila insertada (.select().single())
-          const { data, error } = await supabase.from('productos').insert({
-            codigo_barras: codigoBuscado,
-            nombre: nombre,
-            descripcion: desc,
-            precio_compra: 0
-          }).select().single();
-
-          if (error) {
-             alert('Error al crear producto en BD: ' + error.message);
-             return;
-          }
-
-          // Producto creado con éxito
-          productoSeleccionado = data;
-          formNuevoProducto.style.display = 'none'; // Ocultar formulario
-          
-          // Limpiar campos del nuevo producto
-          document.getElementById('nuevo-nombre').value = '';
-          document.getElementById('nuevo-desc').value = '';
-
-          // Actualizar UI como si lo hubiésemos encontrado
-          infoDiv.innerHTML = `<span class="text-primary"><i class="bi bi-star-fill"></i> ¡Nuevo! ${data.nombre}</span>`;
-          btnReg.disabled = false;
-          
-          // Refrescar tabla en segundo plano
-          cargarProductos();
-          
-          // Enfocar en la cantidad para agilizar
-          document.getElementById('cantidad-input').focus();
-
-        } catch (err) {
-          console.error(err);
-        }
-      });
-
-      // ── Registrar entrada (Actualiza inventario Y Costo) ──
+      // ──────── REGISTRAR ENTRADA MANUAL ────────
       document.getElementById('registrar-btn').addEventListener('click', async () => {
         if (!productoSeleccionado) return;
         const cantidad = parseInt(document.getElementById('cantidad-input').value);
         const precio = parseFloat(document.getElementById('precio-input').value);
-        
         if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
-        if (isNaN(precio) || precio < 0) return alert('Precio inválido');
+        if (isNaN(precio) || precio <= 0) return alert('Precio inválido');
 
-        try {
-          // 1. Guardar la entrada
-          const { error: errorEntrada } = await supabase.from('entradas_inventario').insert({
-            producto_id: productoSeleccionado.id,
-            cantidad,
-            precio_unitario: precio
-          });
+        const { error } = await supabase.from('entradas_inventario').insert({
+          producto_id: productoSeleccionado.id,
+          cantidad,
+          precio_unitario: precio
+        });
 
-          if (errorEntrada) throw errorEntrada;
-
-          // 2. Actualizar el precio de compra (costo) en el catálogo de productos
-          await supabase.from('productos').update({ 
-            precio_compra: precio 
-          }).eq('id', productoSeleccionado.id);
-
-          // Éxito
-          msg.innerHTML = `<div class="alert alert-success py-2 mb-0"><i class="bi bi-check2-all"></i> Entrada guardada: <b>+${cantidad}</b> de "${productoSeleccionado.nombre}". Costo actualizado a $${precio.toFixed(2)}</div>`;
-          
-          // Resetear panel principal
+        const msg = document.getElementById('mensaje');
+        if (error) {
+          msg.innerHTML = '<span class="text-danger">❌ Error al guardar</span>';
+          console.error(error);
+        } else {
+          msg.innerHTML = `<span class="text-success">✅ Entrada registrada: ${cantidad} ud. de "${productoSeleccionado.nombre}" a $${precio.toFixed(2)}</span>`;
           document.getElementById('barcode-input').value = '';
           document.getElementById('cantidad-input').value = 1;
           document.getElementById('precio-input').value = '0.00';
           document.getElementById('producto-encontrado').innerHTML = '';
           productoSeleccionado = null;
-          btnReg.disabled = true;
-          document.getElementById('barcode-input').focus();
-
-          // Refrescar la tabla para ver los costos actualizados
+          document.getElementById('registrar-btn').disabled = true;
+          // Refrescar tabla para ver stock actualizado
           cargarProductos();
-
-        } catch (err) {
-          console.error('Error al insertar:', err);
-          msg.innerHTML = '<div class="alert alert-danger py-2 mb-0">❌ Error al guardar la entrada</div>';
         }
       });
 
-      // ── Permitir presionar ENTER en el buscador ──
-      document.getElementById('barcode-input').addEventListener('keypress', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('buscar-btn').click();
-          }
-      });
-
-      // ── Generar enlace y QR ──
+      // ──────── GENERAR ENLACE Y QR ────────
       function generarEnlaceMovil() {
         const pathParts = window.location.pathname.split('/');
         pathParts.pop();
         const basePath = pathParts.join('/') + '/';
         const urlEscaneo = window.location.origin + basePath + 'escaneo.html';
-        const inputUrl = document.getElementById('url-escaneo');
-        if (inputUrl) inputUrl.value = urlEscaneo;
+        document.getElementById('url-escaneo').value = urlEscaneo;
         const qrDiv = document.getElementById('qrcode');
         if (qrDiv && typeof QRCode !== 'undefined') {
           qrDiv.innerHTML = '';
-          try { new QRCode(qrDiv, { text: urlEscaneo, width: 120, height: 120 }); } 
-          catch (e) { qrDiv.innerHTML = '<p class="text-danger">Error QR</p>'; }
+          new QRCode(qrDiv, { text: urlEscaneo, width: 120, height: 120 });
         }
       }
 
@@ -301,15 +263,16 @@
         if (input) {
           input.select();
           document.execCommand('copy');
-          alert('Enlace copiado');
+          alert('Enlace copiado al portapapeles');
         }
       };
 
-      // ── Iniciar todo al cargar ──
+      // ──────── INICIO ────────
       window.addEventListener('DOMContentLoaded', () => {
         cargarProductos();
         generarEnlaceMovil();
       });
+
     })();
   </script>
 </body>
