@@ -2,219 +2,341 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bodega - Panel de control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Escáner de bodega</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
-    body { background: #f8f9fa; }
-    .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .table th { background: #0d6efd; color: white; }
-    .qr-container { display: flex; flex-direction: column; align-items: center; }
-    .qr-box { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 130px; }
+    body {
+      background: #212529;
+      color: white;
+      touch-action: manipulation;
+    }
+    .scanner-container {
+      max-width: 400px;
+      margin: auto;
+      padding: 20px;
+    }
+    #reader {
+      width: 100%;
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 15px;
+      background: #000;
+      position: relative;
+    }
+    #reader::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      width: 80%;
+      height: 2px;
+      background: rgba(0, 255, 0, 0.7);
+      box-shadow: 0 0 8px rgba(0,255,0,0.5);
+      z-index: 10;
+      animation: scan-line 2s ease-in-out infinite alternate;
+    }
+    @keyframes scan-line {
+      from { transform: translateY(-15px); }
+      to { transform: translateY(15px); }
+    }
+    .card {
+      background: #343a40;
+      border: none;
+    }
+    .btn-detener, .btn-linterna {
+      display: none;
+    }
+    .resultado {
+      background: #198754;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .error {
+      background: #dc3545;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .warning {
+      background: #ffc107;
+      color: #000;
+      padding: 10px;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
-  <div class="container py-4">
-    <div class="d-flex align-items-center mb-4">
-      <i class="bi bi-box-seam fs-1 me-3 text-primary"></i>
-      <h1 class="fw-bold">Gestión de Bodega</h1>
+  <div class="scanner-container">
+    <h2 class="text-center mb-3">📷 Escáner inteligente</h2>
+    <div id="reader"></div>
+    <div class="d-grid gap-2 mb-2">
+      <button id="btn-iniciar" class="btn btn-primary btn-lg">▶️ Iniciar cámara</button>
+      <button id="btn-detener" class="btn btn-outline-danger btn-detener">⏹️ Detener</button>
+      <button id="btn-linterna" class="btn btn-outline-warning btn-linterna">🔦 Linterna</button>
     </div>
+    <div id="status-message"></div>
+    <div id="resultado-escaneo" class="mt-3"></div>
 
-    <!-- Catálogo -->
-    <div class="card mb-4">
-      <div class="card-header bg-primary text-white fw-semibold">
-        <i class="bi bi-list-ul me-2"></i>Catálogo de productos
+    <div id="form-entrada" class="card mt-3 p-3" style="display: none;">
+      <h5 id="form-titulo" class="text-success">Producto encontrado</h5>
+      
+      <p id="nombre-producto" class="fw-bold" style="display: none;"></p>
+      
+      <div id="div-nuevo-producto" class="mb-2" style="display: none;">
+        <label class="form-label text-warning fw-bold">Nombre del nuevo producto *</label>
+        <input type="text" id="nuevo-nombre-movil" class="form-control bg-dark text-white border-warning" placeholder="Ej. Galletas Chokis 50g">
       </div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0" id="tabla-productos">
-            <thead>
-              <tr><th>ID</th><th>Código de barras</th><th>Nombre</th><th>Precio ref.</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
 
-    <!-- Entrada manual -->
-    <div class="card mb-4">
-      <div class="card-header bg-success text-white fw-semibold">
-        <i class="bi bi-plus-circle me-2"></i>Registrar entrada manual
+      <div class="mb-2">
+        <label class="form-label">Cantidad</label>
+        <input type="number" id="cantidad-movil" class="form-control" min="1" value="1">
       </div>
-      <div class="card-body">
-        <div class="row g-3 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label">Código de barras</label>
-            <input type="text" class="form-control" id="barcode-input" placeholder="Escanee o escriba">
-          </div>
-          <div class="col-md-1 d-grid">
-            <button class="btn btn-outline-primary" id="buscar-btn" title="Buscar"><i class="bi bi-search"></i></button>
-          </div>
-          <div class="col-md-3">
-            <div id="producto-encontrado" class="fw-bold pt-2"></div>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Cantidad</label>
-            <input type="number" class="form-control" id="cantidad-input" min="1" value="1">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Precio unitario ($)</label>
-            <input type="number" class="form-control" id="precio-input" step="0.01" min="0" value="0.00">
-          </div>
-          <div class="col-md-1 d-grid">
-            <button class="btn btn-success" id="registrar-btn" disabled title="Guardar"><i class="bi bi-save"></i></button>
-          </div>
-        </div>
-        <div id="mensaje" class="mt-2"></div>
+      <div class="mb-3">
+        <label class="form-label">Precio unitario ($)</label>
+        <input type="number" id="precio-movil" class="form-control" step="0.01" min="0" value="0.00">
       </div>
-    </div>
-
-    <!-- Enlace al teléfono -->
-    <div class="card">
-      <div class="card-header text-white fw-semibold" style="background: #6f42c1;">
-        <i class="bi bi-phone me-2"></i>Escáner móvil
-      </div>
-      <div class="card-body">
-        <p class="mb-2">Envía este enlace al teléfono para escanear códigos con la cámara:</p>
-        <div class="row align-items-center">
-          <div class="col-md-6">
-            <input type="text" class="form-control" id="url-escaneo" readonly>
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-outline-secondary" onclick="copiarEnlace()"><i class="bi bi-clipboard"></i> Copiar</button>
-          </div>
-          <div class="col-md-4 text-center qr-container">
-            <div id="qrcode" class="qr-box"></div>
-            <small class="text-muted mt-1">Escanea con tu teléfono</small>
-          </div>
-        </div>
-        <p class="mt-2 text-muted small">Ambos dispositivos deben estar conectados a internet.</p>
-      </div>
+      <button id="guardar-movil" class="btn btn-success w-100 fw-bold">💾 Guardar en Base de Datos</button>
+      <button id="cancelar-movil" class="btn btn-outline-light w-100 mt-2">Cancelar</button>
     </div>
   </div>
 
-  <!-- Carga de dependencias (una sola vez) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
   <script>
     (function() {
-      // ── Configuración Supabase ──
+      console.log('🚀 Escáner Inteligente Autónomo v3.0');
+
+      if (typeof Html5Qrcode === 'undefined' || typeof window.supabase === 'undefined') {
+        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error de conexión de librerías. Recarga la página.</div>';
+        return;
+      }
+
       const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      let productoSeleccionado = null;
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ── Catálogo ──
-      async function cargarProductos() {
+      let html5QrCode = null;
+      let productoActual = null;       // Almacenará los datos si existe
+      let codigoEscaneadoActual = "";  // Guardará el string del código de barras
+      let esProductoNuevo = false;     // Interruptor lógico
+      let linternaEncendida = false;
+
+      const btnIniciar = document.getElementById('btn-iniciar');
+      const btnDetener = document.getElementById('btn-detener');
+      const btnLinterna = document.getElementById('btn-linterna');
+      const statusMsg = document.getElementById('status-message');
+      const resultadoDiv = document.getElementById('resultado-escaneo');
+      const formDiv = document.getElementById('form-entrada');
+
+      const formatsToSupport = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ];
+
+      async function stopCamera() {
+        if (html5QrCode && (html5QrCode.isScanning || (html5QrCode.getState && html5QrCode.getState() === 2))) {
+          try { await html5QrCode.stop(); } catch (e) { console.warn(e); }
+        }
+        html5QrCode = null;
+        btnIniciar.style.display = 'block';
+        btnDetener.style.display = 'none';
+        btnLinterna.style.display = 'none';
+        linternaEncendida = false;
+        btnLinterna.textContent = '🔦 Linterna';
+      }
+
+      async function toggleTorch() {
+        if (!html5QrCode || !html5QrCode.isScanning) return;
         try {
-          const { data, error } = await supabase.from('productos').select('*').order('id');
-          if (error) throw error;
-          const tbody = document.querySelector('#tabla-productos tbody');
-          tbody.innerHTML = data.map(p => `
-            <tr>
-              <td>${p.id}</td>
-              <td>${p.codigo_barras}</td>
-              <td>${p.nombre}</td>
-              <td>$${parseFloat(p.precio_compra).toFixed(2)}</td>
-            </tr>`).join('');
+          const capabilities = html5QrCode.getRunningTrackCapabilities();
+          if (capabilities && capabilities.torch) {
+            linternaEncendida = !linternaEncendida;
+            await html5QrCode.applyVideoConstraints({ advanced: [{ torch: linternaEncendida }] });
+            btnLinterna.textContent = linternaEncendida ? '💡 Apagar linterna' : '🔦 Linterna';
+          } else { alert('Linterna no soportada en este dispositivo.'); }
+        } catch (e) { console.error(e); }
+      }
+
+      async function startCamera() {
+        await stopCamera();
+        statusMsg.innerHTML = '';
+        resultadoDiv.innerHTML = '';
+        formDiv.style.display = 'none';
+        productoActual = null;
+        codigoEscaneadoActual = "";
+        esProductoNuevo = false;
+
+        try {
+          html5QrCode = new Html5Qrcode("reader");
+          const config = {
+            fps: 12,
+            qrbox: { width: 280, height: 120 },
+            aspectRatio: 1.777,
+            formatsToSupport: formatsToSupport,
+          };
+
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+              if (navigator.vibrate) navigator.vibrate(200);
+              html5QrCode.stop().then(() => {
+                btnIniciar.style.display = 'block';
+                btnDetener.style.display = 'none';
+                btnLinterna.style.display = 'none';
+                buscarProducto(decodedText.trim());
+              }).catch(err => console.warn(err));
+            },
+            (errorMessage) => {}
+          );
+
+          btnIniciar.style.display = 'none';
+          btnDetener.style.display = 'block';
+          try {
+            const track = html5QrCode.getRunningTrackCapabilities();
+            if (track && track.torch) btnLinterna.style.display = 'block';
+          } catch (e) {}
+          statusMsg.innerHTML = '<div class="text-info">🔍 Apunta al código de barras...</div>';
         } catch (err) {
-          console.error('Error al cargar productos:', err);
-          document.querySelector('#tabla-productos tbody').innerHTML = '<tr><td colspan="4" class="text-danger">Error al cargar datos. Revisa consola.</td></tr>';
+          console.error(err);
+          statusMsg.innerHTML = `<div class="error">❌ No se pudo iniciar cámara: ${err.message || err}</div>`;
         }
       }
 
-      // ── Buscar producto ──
-      document.getElementById('buscar-btn').addEventListener('click', async () => {
-        const codigo = document.getElementById('barcode-input').value.trim();
-        if (!codigo) return alert('Ingrese un código');
+      // ── LÓGICA DE BÚSQUEDA Y ADAPTACIÓN EN EL TELÉFONO ──
+      async function buscarProducto(codigo) {
+        codigoEscaneadoActual = codigo; 
+        statusMsg.innerHTML = '';
+
         try {
-          const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
-          const infoDiv = document.getElementById('producto-encontrado');
-          const btnReg = document.getElementById('registrar-btn');
+          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).single();
+
           if (error || !data) {
-            infoDiv.innerHTML = '<span class="text-danger">❌ Producto no encontrado</span>';
-            productoSeleccionado = null;
-            btnReg.disabled = true;
-            return;
-          }
-          productoSeleccionado = data;
-          infoDiv.innerHTML = `<span class="text-success">✅ ${data.nombre} (Ref: $${parseFloat(data.precio_compra).toFixed(2)})</span>`;
-          btnReg.disabled = false;
-        } catch (err) {
-          console.error('Error al buscar:', err);
-        }
-      });
+            // CASO A: EL CÓDIGO NO EXISTE -> Cambiar interfaz para registrar como nuevo
+            esProductoNuevo = true;
+            productoActual = null;
 
-      // ── Registrar entrada ──
-      document.getElementById('registrar-btn').addEventListener('click', async () => {
-        if (!productoSeleccionado) return;
-        const cantidad = parseInt(document.getElementById('cantidad-input').value);
-        const precio = parseFloat(document.getElementById('precio-input').value);
-        if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
-        if (isNaN(precio) || precio <= 0) return alert('Precio inválido');
+            resultadoDiv.innerHTML = `<div class="warning">⚠️ Código [${codigo}] NO registrado.</div>`;
+            
+            // Ajustar el formulario
+            document.getElementById('form-titulo').textContent = "🆕 Registrar Nuevo Producto";
+            document.getElementById('form-titulo').className = "text-warning fw-bold";
+            document.getElementById('nombre-producto').style.display = 'none';
+            document.getElementById('div-nuevo-producto').style.display = 'block'; // Mostrar input de texto
+            
+            // Resetear inputs
+            document.getElementById('nuevo-nombre-movil').value = '';
+            document.getElementById('cantidad-movil').value = 1;
+            document.getElementById('precio-movil').value = '0.00';
+            
+            formDiv.style.display = 'block';
+            document.getElementById('nuevo-nombre-movil').focus();
+          } else {
+            // CASO B: EL CÓDIGO YA EXISTE -> Flujo normal de entrada
+            esProductoNuevo = false;
+            productoActual = data;
+
+            resultadoDiv.innerHTML = `<div class="resultado">✅ Producto detectado correctamente</div>`;
+            
+            // Ajustar el formulario
+            document.getElementById('form-titulo').textContent = "✅ Registrar Entrada";
+            document.getElementById('form-titulo').className = "text-success fw-bold";
+            document.getElementById('div-nuevo-producto').style.display = 'none'; // Ocultar input de texto
+            document.getElementById('nombre-producto').style.display = 'block';
+            document.getElementById('nombre-producto').textContent = data.nombre;
+            
+            // Pre-cargar el precio de costo anterior
+            document.getElementById('cantidad-movil').value = 1;
+            document.getElementById('precio-movil').value = data.precio_compra || 0;
+            
+            formDiv.style.display = 'block';
+          }
+        } catch (err) {
+          console.error(err);
+          resultadoDiv.innerHTML = '<div class="error">Error al conectar con Supabase.</div>';
+        }
+      }
+
+      // ── PROCESAR GUARDADO AUTOMÁTICO EN EL TELÉFONO ──
+      document.getElementById('guardar-movil').addEventListener('click', async () => {
+        const cantidad = parseInt(document.getElementById('cantidad-movil').value);
+        const precio = parseFloat(document.getElementById('precio-movil').value);
+
+        if (isNaN(cantidad) || cantidad <= 0) return alert('Por favor, ingrese una cantidad válida');
+        if (isNaN(precio) || precio < 0) return alert('Por favor, ingrese un precio válido');
 
         try {
-          const { error } = await supabase.from('entradas_inventario').insert({
-            producto_id: productoSeleccionado.id,
-            cantidad,
+          let productoId = null;
+          let nombreFinal = "";
+
+          if (esProductoNuevo) {
+            // 1. Si es nuevo, primero creamos el producto en la tabla 'productos'
+            const nombreNuevo = document.getElementById('nuevo-nombre-movil').value.trim();
+            if (!nombreNuevo) return alert('Debes escribir un nombre para el producto nuevo');
+            nombreFinal = nombreNuevo;
+
+            const { data: nuevoProd, error: errProd } = await client.from('productos').insert({
+              codigo_barras: codigoEscaneadoActual,
+              nombre: nombreNuevo,
+              precio_compra: precio // Guarda el precio actual como referencia inicial
+            }).select().single();
+
+            if (errProd) throw errProd;
+            productoId = nuevoProd.id; // Obtenemos el ID asignado por la base de datos
+          } else {
+            // 2. Si ya existía, usamos su ID actual e igual actualizamos su costo de referencia
+            productoId = productoActual.id;
+            nombreFinal = productoActual.nombre;
+
+            await client.from('productos').update({ 
+              precio_compra: precio 
+            }).eq('id', productoId);
+          }
+
+          // 3. Insertar la transacción de entrada en 'entradas_inventario'
+          const { error: errEntrada } = await client.from('entradas_inventario').insert({
+            producto_id: productoId,
+            cantidad: cantidad,
             precio_unitario: precio
           });
-          const msg = document.getElementById('mensaje');
-          if (error) {
-            msg.innerHTML = '<span class="text-danger">❌ Error al guardar</span>';
-            console.error(error);
-          } else {
-            msg.innerHTML = `<span class="text-success">✅ Entrada registrada: ${cantidad} ud. de "${productoSeleccionado.nombre}" a $${precio.toFixed(2)}</span>`;
-            document.getElementById('barcode-input').value = '';
-            document.getElementById('cantidad-input').value = 1;
-            document.getElementById('precio-input').value = '0.00';
-            document.getElementById('producto-encontrado').innerHTML = '';
-            productoSeleccionado = null;
-            document.getElementById('registrar-btn').disabled = true;
-          }
+
+          if (errEntrada) throw errEntrada;
+
+          // Todo salió bien
+          alert(`🎉 Éxito:\nSe guardaron ${cantidad} unidades de "${nombreFinal}" correctamente.`);
+          
+          // Limpiar pantalla para el próximo escaneo
+          formDiv.style.display = 'none';
+          resultadoDiv.innerHTML = '';
+          productoActual = null;
+          esProductoNuevo = false;
+          btnIniciar.style.display = 'block';
+
         } catch (err) {
-          console.error('Error al insertar:', err);
+          console.error(err);
+          alert('Error crítico al procesar la operación: ' + err.message);
         }
       });
 
-      // ── Generar enlace y QR ──
-      function generarEnlaceMovil() {
-        const pathParts = window.location.pathname.split('/');
-        pathParts.pop(); // quitar 'panel.html'
-        const basePath = pathParts.join('/') + '/';
-        const urlEscaneo = window.location.origin + basePath + 'escaneo.html';
-
-        const inputUrl = document.getElementById('url-escaneo');
-        if (inputUrl) inputUrl.value = urlEscaneo;
-
-        const qrDiv = document.getElementById('qrcode');
-        if (qrDiv && typeof QRCode !== 'undefined') {
-          qrDiv.innerHTML = '';
-          try {
-            new QRCode(qrDiv, { text: urlEscaneo, width: 120, height: 120 });
-          } catch (e) {
-            qrDiv.innerHTML = '<p class="text-danger">Error al generar QR. Usa el enlace.</p>';
-          }
-        }
-      }
-
-      window.copiarEnlace = function() {
-        const input = document.getElementById('url-escaneo');
-        if (input) {
-          input.select();
-          document.execCommand('copy');
-          alert('Enlace copiado');
-        }
-      };
-
-      // ── Iniciar todo al cargar ──
-      window.addEventListener('DOMContentLoaded', () => {
-        cargarProductos();
-        generarEnlaceMovil();
+      document.getElementById('cancelar-movil').addEventListener('click', () => {
+        formDiv.style.display = 'none';
+        resultadoDiv.innerHTML = '';
+        productoActual = null;
+        esProductoNuevo = false;
+        btnIniciar.style.display = 'block';
       });
+
+      btnIniciar.addEventListener('click', startCamera);
+      btnDetener.addEventListener('click', stopCamera);
+      btnLinterna.addEventListener('click', toggleTorch);
+
+      window.addEventListener('load', () => { btnIniciar.style.display = 'block'; });
     })();
   </script>
 </body>
