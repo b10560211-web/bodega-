@@ -9,7 +9,7 @@
     body {
       background: #212529;
       color: white;
-      touch-action: manipulation; /* mejora respuesta táctil */
+      touch-action: manipulation;
     }
     .scanner-container {
       max-width: 400px;
@@ -24,7 +24,6 @@
       background: #000;
       position: relative;
     }
-    /* Línea guía animada */
     #reader::after {
       content: '';
       position: absolute;
@@ -79,8 +78,15 @@
     <div id="resultado-escaneo" class="mt-3"></div>
 
     <div id="form-entrada" class="card mt-3 p-3" style="display: none;">
-      <h5 class="text-success">Producto encontrado</h5>
-      <p id="nombre-producto" class="fw-bold"></p>
+      <h5 id="form-titulo" class="text-success">Producto encontrado</h5>
+      
+      <p id="nombre-producto" class="fw-bold" style="display: none;"></p>
+      
+      <div id="div-nuevo-producto" class="mb-2" style="display: none;">
+        <label class="form-label text-warning fw-bold">Nombre del nuevo producto *</label>
+        <input type="text" id="nuevo-nombre-movil" class="form-control bg-dark text-white border-warning" placeholder="Ej. Galletas Chokis 50g">
+      </div>
+
       <div class="mb-2">
         <label class="form-label">Cantidad</label>
         <input type="number" id="cantidad-movil" class="form-control" min="1" value="1">
@@ -89,7 +95,7 @@
         <label class="form-label">Precio unitario ($)</label>
         <input type="number" id="precio-movil" class="form-control" step="0.01" min="0" value="0.00">
       </div>
-      <button id="guardar-movil" class="btn btn-success w-100">💾 Registrar entrada</button>
+      <button id="guardar-movil" class="btn btn-success w-100 fw-bold">💾 Guardar en Base de Datos</button>
       <button id="cancelar-movil" class="btn btn-outline-light w-100 mt-2">Cancelar</button>
     </div>
   </div>
@@ -99,15 +105,10 @@
 
   <script>
     (function() {
-      console.log('🚀 Escáner inteligente v2.3.8 cargado');
+      console.log('🚀 Escáner Inteligente Autónomo v3.0');
 
-      // Verificar dependencias
-      if (typeof Html5Qrcode === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error al cargar librería de cámara. Recarga.</div>';
-        return;
-      }
-      if (typeof window.supabase === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error al cargar Supabase.</div>';
+      if (typeof Html5Qrcode === 'undefined' || typeof window.supabase === 'undefined') {
+        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error de conexión de librerías. Recarga la página.</div>';
         return;
       }
 
@@ -116,7 +117,9 @@
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       let html5QrCode = null;
-      let productoActual = null;
+      let productoActual = null;       // Almacenará los datos si existe
+      let codigoEscaneadoActual = "";  // Guardará el string del código de barras
+      let esProductoNuevo = false;     // Interruptor lógico
       let linternaEncendida = false;
 
       const btnIniciar = document.getElementById('btn-iniciar');
@@ -126,7 +129,6 @@
       const resultadoDiv = document.getElementById('resultado-escaneo');
       const formDiv = document.getElementById('form-entrada');
 
-      // Formatos de código de barras a leer
       const formatsToSupport = [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -134,25 +136,12 @@
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_93,
-        Html5QrcodeSupportedFormats.CODABAR,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.QR_CODE, // por si acaso
+        Html5QrcodeSupportedFormats.QR_CODE
       ];
 
-      // Verificar si HTTPS (GitHub Pages ya lo es)
-      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        statusMsg.innerHTML = '<div class="warning">⚠️ La cámara requiere HTTPS. Estás en un sitio seguro, debería funcionar.</div>';
-      }
-
-      // Detener cámara
       async function stopCamera() {
-        if (html5QrCode && (html5QrCode.isScanning || html5QrCode.getState && html5QrCode.getState() === 2)) {
-          try {
-            await html5QrCode.stop();
-          } catch (e) {
-            console.warn('Error al detener:', e);
-          }
+        if (html5QrCode && (html5QrCode.isScanning || (html5QrCode.getState && html5QrCode.getState() === 2))) {
+          try { await html5QrCode.stop(); } catch (e) { console.warn(e); }
         }
         html5QrCode = null;
         btnIniciar.style.display = 'block';
@@ -162,43 +151,32 @@
         btnLinterna.textContent = '🔦 Linterna';
       }
 
-      // Encender/apagar linterna (torch)
       async function toggleTorch() {
         if (!html5QrCode || !html5QrCode.isScanning) return;
         try {
           const capabilities = html5QrCode.getRunningTrackCapabilities();
           if (capabilities && capabilities.torch) {
-            if (linternaEncendida) {
-              await html5QrCode.applyVideoConstraints({ advanced: [{ torch: false }] });
-              linternaEncendida = false;
-              btnLinterna.textContent = '🔦 Linterna';
-            } else {
-              await html5QrCode.applyVideoConstraints({ advanced: [{ torch: true }] });
-              linternaEncendida = true;
-              btnLinterna.textContent = '💡 Apagar linterna';
-            }
-          } else {
-            alert('Tu dispositivo no soporta linterna.');
-          }
-        } catch (e) {
-          console.error('Error con linterna:', e);
-          alert('No se pudo controlar la linterna.');
-        }
+            linternaEncendida = !linternaEncendida;
+            await html5QrCode.applyVideoConstraints({ advanced: [{ torch: linternaEncendida }] });
+            btnLinterna.textContent = linternaEncendida ? '💡 Apagar linterna' : '🔦 Linterna';
+          } else { alert('Linterna no soportada en este dispositivo.'); }
+        } catch (e) { console.error(e); }
       }
 
-      // Iniciar cámara
       async function startCamera() {
-        await stopCamera(); // limpieza previa
+        await stopCamera();
         statusMsg.innerHTML = '';
         resultadoDiv.innerHTML = '';
         formDiv.style.display = 'none';
         productoActual = null;
+        codigoEscaneadoActual = "";
+        esProductoNuevo = false;
 
         try {
           html5QrCode = new Html5Qrcode("reader");
           const config = {
-            fps: 10,
-            qrbox: { width: 280, height: 100 }, // rectángulo alargado para códigos de barras
+            fps: 12,
+            qrbox: { width: 280, height: 120 },
             aspectRatio: 1.777,
             formatsToSupport: formatsToSupport,
           };
@@ -206,115 +184,159 @@
           await html5QrCode.start(
             { facingMode: "environment" },
             config,
-            (decodedText, decodedResult) => {
-              // ¡Escaneo exitoso!
-              // Vibrar si está disponible
+            (decodedText) => {
               if (navigator.vibrate) navigator.vibrate(200);
-
-              // Detener cámara inmediatamente
               html5QrCode.stop().then(() => {
                 btnIniciar.style.display = 'block';
                 btnDetener.style.display = 'none';
                 btnLinterna.style.display = 'none';
-                linternaEncendida = false;
-                // Buscar producto
-                buscarProducto(decodedText);
-              }).catch(err => console.warn('Error al detener tras escaneo:', err));
+                buscarProducto(decodedText.trim());
+              }).catch(err => console.warn(err));
             },
-            (errorMessage) => {
-              // Ignorar errores de escaneo continuo (no mostrar en pantalla para no molestar)
-            }
+            (errorMessage) => {}
           );
 
           btnIniciar.style.display = 'none';
           btnDetener.style.display = 'block';
-          // Mostrar botón linterna si la cámara lo soporta
           try {
             const track = html5QrCode.getRunningTrackCapabilities();
-            if (track && track.torch) {
-              btnLinterna.style.display = 'block';
-            }
+            if (track && track.torch) btnLinterna.style.display = 'block';
           } catch (e) {}
-          statusMsg.innerHTML = '<div class="text-info">🔍 Escaneando código de barras... Apunta al código.</div>';
+          statusMsg.innerHTML = '<div class="text-info">🔍 Apunta al código de barras...</div>';
         } catch (err) {
-          console.error('Error al iniciar cámara:', err);
-          let msg = 'Error al iniciar cámara.';
-          if (err.name === 'NotAllowedError') msg = 'Permiso de cámara denegado. Actívalo en ajustes del navegador.';
-          else if (err.name === 'NotFoundError') msg = 'No se encontró cámara trasera.';
-          else msg = err.message || msg;
-          statusMsg.innerHTML = `<div class="error">❌ ${msg}</div>`;
-          btnIniciar.style.display = 'block';
-          btnDetener.style.display = 'none';
-          btnLinterna.style.display = 'none';
+          console.error(err);
+          statusMsg.innerHTML = `<div class="error">❌ No se pudo iniciar cámara: ${err.message || err}</div>`;
         }
       }
+
+      // ── LÓGICA DE BÚSQUEDA Y ADAPTACIÓN EN EL TELÉFONO ──
+      async function buscarProducto(codigo) {
+        codigoEscaneadoActual = codigo; 
+        statusMsg.innerHTML = '';
+
+        try {
+          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).single();
+
+          if (error || !data) {
+            // CASO A: EL CÓDIGO NO EXISTE -> Cambiar interfaz para registrar como nuevo
+            esProductoNuevo = true;
+            productoActual = null;
+
+            resultadoDiv.innerHTML = `<div class="warning">⚠️ Código [${codigo}] NO registrado.</div>`;
+            
+            // Ajustar el formulario
+            document.getElementById('form-titulo').textContent = "🆕 Registrar Nuevo Producto";
+            document.getElementById('form-titulo').className = "text-warning fw-bold";
+            document.getElementById('nombre-producto').style.display = 'none';
+            document.getElementById('div-nuevo-producto').style.display = 'block'; // Mostrar input de texto
+            
+            // Resetear inputs
+            document.getElementById('nuevo-nombre-movil').value = '';
+            document.getElementById('cantidad-movil').value = 1;
+            document.getElementById('precio-movil').value = '0.00';
+            
+            formDiv.style.display = 'block';
+            document.getElementById('nuevo-nombre-movil').focus();
+          } else {
+            // CASO B: EL CÓDIGO YA EXISTE -> Flujo normal de entrada
+            esProductoNuevo = false;
+            productoActual = data;
+
+            resultadoDiv.innerHTML = `<div class="resultado">✅ Producto detectado correctamente</div>`;
+            
+            // Ajustar el formulario
+            document.getElementById('form-titulo').textContent = "✅ Registrar Entrada";
+            document.getElementById('form-titulo').className = "text-success fw-bold";
+            document.getElementById('div-nuevo-producto').style.display = 'none'; // Ocultar input de texto
+            document.getElementById('nombre-producto').style.display = 'block';
+            document.getElementById('nombre-producto').textContent = data.nombre;
+            
+            // Pre-cargar el precio de costo anterior
+            document.getElementById('cantidad-movil').value = 1;
+            document.getElementById('precio-movil').value = data.precio_compra || 0;
+            
+            formDiv.style.display = 'block';
+          }
+        } catch (err) {
+          console.error(err);
+          resultadoDiv.innerHTML = '<div class="error">Error al conectar con Supabase.</div>';
+        }
+      }
+
+      // ── PROCESAR GUARDADO AUTOMÁTICO EN EL TELÉFONO ──
+      document.getElementById('guardar-movil').addEventListener('click', async () => {
+        const cantidad = parseInt(document.getElementById('cantidad-movil').value);
+        const precio = parseFloat(document.getElementById('precio-movil').value);
+
+        if (isNaN(cantidad) || cantidad <= 0) return alert('Por favor, ingrese una cantidad válida');
+        if (isNaN(precio) || precio < 0) return alert('Por favor, ingrese un precio válido');
+
+        try {
+          let productoId = null;
+          let nombreFinal = "";
+
+          if (esProductoNuevo) {
+            // 1. Si es nuevo, primero creamos el producto en la tabla 'productos'
+            const nombreNuevo = document.getElementById('nuevo-nombre-movil').value.trim();
+            if (!nombreNuevo) return alert('Debes escribir un nombre para el producto nuevo');
+            nombreFinal = nombreNuevo;
+
+            const { data: nuevoProd, error: errProd } = await client.from('productos').insert({
+              codigo_barras: codigoEscaneadoActual,
+              nombre: nombreNuevo,
+              precio_compra: precio // Guarda el precio actual como referencia inicial
+            }).select().single();
+
+            if (errProd) throw errProd;
+            productoId = nuevoProd.id; // Obtenemos el ID asignado por la base de datos
+          } else {
+            // 2. Si ya existía, usamos su ID actual e igual actualizamos su costo de referencia
+            productoId = productoActual.id;
+            nombreFinal = productoActual.nombre;
+
+            await client.from('productos').update({ 
+              precio_compra: precio 
+            }).eq('id', productoId);
+          }
+
+          // 3. Insertar la transacción de entrada en 'entradas_inventario'
+          const { error: errEntrada } = await client.from('entradas_inventario').insert({
+            producto_id: productoId,
+            cantidad: cantidad,
+            precio_unitario: precio
+          });
+
+          if (errEntrada) throw errEntrada;
+
+          // Todo salió bien
+          alert(`🎉 Éxito:\nSe guardaron ${cantidad} unidades de "${nombreFinal}" correctamente.`);
+          
+          // Limpiar pantalla para el próximo escaneo
+          formDiv.style.display = 'none';
+          resultadoDiv.innerHTML = '';
+          productoActual = null;
+          esProductoNuevo = false;
+          btnIniciar.style.display = 'block';
+
+        } catch (err) {
+          console.error(err);
+          alert('Error crítico al procesar la operación: ' + err.message);
+        }
+      });
+
+      document.getElementById('cancelar-movil').addEventListener('click', () => {
+        formDiv.style.display = 'none';
+        resultadoDiv.innerHTML = '';
+        productoActual = null;
+        esProductoNuevo = false;
+        btnIniciar.style.display = 'block';
+      });
 
       btnIniciar.addEventListener('click', startCamera);
       btnDetener.addEventListener('click', stopCamera);
       btnLinterna.addEventListener('click', toggleTorch);
 
-      // Buscar producto en Supabase
-      async function buscarProducto(codigo) {
-        try {
-          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).single();
-          if (error || !data) {
-            resultadoDiv.innerHTML = `<div class="error">❌ Código "${codigo}" no encontrado. <button class="btn btn-sm btn-outline-light ms-2" onclick="window.escaneoRetry()">Reintentar escaneo</button></div>`;
-            productoActual = null;
-            formDiv.style.display = 'none';
-            return;
-          }
-          productoActual = data;
-          resultadoDiv.innerHTML = `<div class="resultado">✅ ${data.nombre} (Ref: $${parseFloat(data.precio_compra).toFixed(2)})</div>`;
-          document.getElementById('nombre-producto').textContent = data.nombre;
-          document.getElementById('precio-movil').value = data.precio_compra || 0;
-          formDiv.style.display = 'block';
-        } catch (err) {
-          console.error(err);
-          resultadoDiv.innerHTML = '<div class="error">Error de conexión con la base de datos.</div>';
-        }
-      }
-
-      // Función global para reintentar escaneo desde el mensaje de error
-      window.escaneoRetry = function() {
-        startCamera();
-      };
-
-      // Guardar entrada
-      document.getElementById('guardar-movil').addEventListener('click', async () => {
-        if (!productoActual) return;
-        const cantidad = parseInt(document.getElementById('cantidad-movil').value);
-        const precio = parseFloat(document.getElementById('precio-movil').value);
-        if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
-        if (isNaN(precio) || precio <= 0) return alert('Precio inválido');
-
-        try {
-          const { error } = await client.from('entradas_inventario').insert({
-            producto_id: productoActual.id,
-            cantidad,
-            precio_unitario: precio
-          });
-          if (error) throw error;
-          alert(`✅ Entrada guardada: ${cantidad} ud. de "${productoActual.nombre}"`);
-          productoActual = null;
-          formDiv.style.display = 'none';
-          resultadoDiv.innerHTML = '';
-          btnIniciar.style.display = 'block';
-        } catch (err) {
-          alert('Error al guardar: ' + err.message);
-        }
-      });
-
-      document.getElementById('cancelar-movil').addEventListener('click', () => {
-        productoActual = null;
-        formDiv.style.display = 'none';
-        resultadoDiv.innerHTML = '';
-        btnIniciar.style.display = 'block';
-      });
-
-      // Ajuste inicial
-      window.addEventListener('load', () => {
-        btnIniciar.style.display = 'block';
-      });
+      window.addEventListener('load', () => { btnIniciar.style.display = 'block'; });
     })();
   </script>
 </body>
