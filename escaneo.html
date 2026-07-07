@@ -11,11 +11,7 @@
       color: white;
       touch-action: manipulation;
     }
-    .scanner-container {
-      max-width: 400px;
-      margin: auto;
-      padding: 20px;
-    }
+    .scanner-container { max-width: 400px; margin: auto; padding: 20px; }
     #reader {
       width: 100%;
       border-radius: 15px;
@@ -27,10 +23,7 @@
     #reader::after {
       content: '';
       position: absolute;
-      top: 50%;
-      left: 10%;
-      width: 80%;
-      height: 2px;
+      top: 50%; left: 10%; width: 80%; height: 2px;
       background: rgba(0, 255, 0, 0.7);
       box-shadow: 0 0 8px rgba(0,255,0,0.5);
       z-index: 10;
@@ -40,29 +33,11 @@
       from { transform: translateY(-15px); }
       to { transform: translateY(15px); }
     }
-    .card {
-      background: #343a40;
-      border: none;
-    }
-    .btn-detener, .btn-linterna {
-      display: none;
-    }
-    .resultado {
-      background: #198754;
-      padding: 10px;
-      border-radius: 8px;
-    }
-    .error {
-      background: #dc3545;
-      padding: 10px;
-      border-radius: 8px;
-    }
-    .warning {
-      background: #ffc107;
-      color: #000;
-      padding: 10px;
-      border-radius: 8px;
-    }
+    .card { background: #343a40; border: none; }
+    .btn-detener, .btn-linterna { display: none; }
+    .resultado { background: #198754; padding: 10px; border-radius: 8px; }
+    .error { background: #dc3545; padding: 10px; border-radius: 8px; }
+    .warning { background: #ffc107; color: #000; padding: 10px; border-radius: 8px; }
   </style>
 </head>
 <body>
@@ -79,14 +54,11 @@
 
     <div id="form-entrada" class="card mt-3 p-3" style="display: none;">
       <h5 id="form-titulo" class="text-success">Producto encontrado</h5>
-      
       <p id="nombre-producto" class="fw-bold" style="display: none;"></p>
-      
       <div id="div-nuevo-producto" class="mb-2" style="display: none;">
         <label class="form-label text-warning fw-bold">Nombre del nuevo producto *</label>
         <input type="text" id="nuevo-nombre-movil" class="form-control bg-dark text-white border-warning" placeholder="Ej. Galletas Chokis 50g">
       </div>
-
       <div class="mb-2">
         <label class="form-label">Cantidad</label>
         <input type="number" id="cantidad-movil" class="form-control" min="1" value="1">
@@ -105,10 +77,10 @@
 
   <script>
     (function() {
-      console.log('🚀 Escáner Inteligente Autónomo v3.0');
+      console.log('🚀 Escáner Autónomo v4.0 - Anti-duplicados');
 
       if (typeof Html5Qrcode === 'undefined' || typeof window.supabase === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Error de conexión de librerías. Recarga la página.</div>';
+        document.getElementById('status-message').innerHTML = '<div class="error">❌ Librerías no cargadas. Recarga.</div>';
         return;
       }
 
@@ -117,9 +89,9 @@
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       let html5QrCode = null;
-      let productoActual = null;       // Almacenará los datos si existe
-      let codigoEscaneadoActual = "";  // Guardará el string del código de barras
-      let esProductoNuevo = false;     // Interruptor lógico
+      let productoActual = null;
+      let codigoEscaneadoActual = "";
+      let esProductoNuevo = false;
       let linternaEncendida = false;
 
       const btnIniciar = document.getElementById('btn-iniciar');
@@ -138,6 +110,10 @@
         Html5QrcodeSupportedFormats.CODE_39,
         Html5QrcodeSupportedFormats.QR_CODE
       ];
+
+      function limpiarCodigo(raw) {
+        return raw.replace(/[^\dA-Za-z\-\.]/g, '').trim(); // deja solo dígitos, letras, guiones y puntos
+      }
 
       async function stopCamera() {
         if (html5QrCode && (html5QrCode.isScanning || (html5QrCode.getState && html5QrCode.getState() === 2))) {
@@ -159,7 +135,7 @@
             linternaEncendida = !linternaEncendida;
             await html5QrCode.applyVideoConstraints({ advanced: [{ torch: linternaEncendida }] });
             btnLinterna.textContent = linternaEncendida ? '💡 Apagar linterna' : '🔦 Linterna';
-          } else { alert('Linterna no soportada en este dispositivo.'); }
+          } else { alert('Linterna no soportada.'); }
         } catch (e) { console.error(e); }
       }
 
@@ -190,7 +166,8 @@
                 btnIniciar.style.display = 'block';
                 btnDetener.style.display = 'none';
                 btnLinterna.style.display = 'none';
-                buscarProducto(decodedText.trim());
+                const codigoLimpio = limpiarCodigo(decodedText);
+                buscarProducto(codigoLimpio);
               }).catch(err => console.warn(err));
             },
             (errorMessage) => {}
@@ -209,52 +186,40 @@
         }
       }
 
-      // ── LÓGICA DE BÚSQUEDA Y ADAPTACIÓN EN EL TELÉFONO ──
       async function buscarProducto(codigo) {
-        codigoEscaneadoActual = codigo; 
+        codigoEscaneadoActual = codigo;
         statusMsg.innerHTML = '';
 
         try {
-          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).single();
+          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).maybeSingle();
 
           if (error || !data) {
-            // CASO A: EL CÓDIGO NO EXISTE -> Cambiar interfaz para registrar como nuevo
+            // No existe → modo nuevo
             esProductoNuevo = true;
             productoActual = null;
 
             resultadoDiv.innerHTML = `<div class="warning">⚠️ Código [${codigo}] NO registrado.</div>`;
-            
-            // Ajustar el formulario
             document.getElementById('form-titulo').textContent = "🆕 Registrar Nuevo Producto";
             document.getElementById('form-titulo').className = "text-warning fw-bold";
             document.getElementById('nombre-producto').style.display = 'none';
-            document.getElementById('div-nuevo-producto').style.display = 'block'; // Mostrar input de texto
-            
-            // Resetear inputs
+            document.getElementById('div-nuevo-producto').style.display = 'block';
             document.getElementById('nuevo-nombre-movil').value = '';
             document.getElementById('cantidad-movil').value = 1;
             document.getElementById('precio-movil').value = '0.00';
-            
             formDiv.style.display = 'block';
             document.getElementById('nuevo-nombre-movil').focus();
           } else {
-            // CASO B: EL CÓDIGO YA EXISTE -> Flujo normal de entrada
+            // Existe
             esProductoNuevo = false;
             productoActual = data;
-
             resultadoDiv.innerHTML = `<div class="resultado">✅ Producto detectado correctamente</div>`;
-            
-            // Ajustar el formulario
             document.getElementById('form-titulo').textContent = "✅ Registrar Entrada";
             document.getElementById('form-titulo').className = "text-success fw-bold";
-            document.getElementById('div-nuevo-producto').style.display = 'none'; // Ocultar input de texto
+            document.getElementById('div-nuevo-producto').style.display = 'none';
             document.getElementById('nombre-producto').style.display = 'block';
             document.getElementById('nombre-producto').textContent = data.nombre;
-            
-            // Pre-cargar el precio de costo anterior
             document.getElementById('cantidad-movil').value = 1;
             document.getElementById('precio-movil').value = data.precio_compra || 0;
-            
             formDiv.style.display = 'block';
           }
         } catch (err) {
@@ -263,55 +228,65 @@
         }
       }
 
-      // ── PROCESAR GUARDADO AUTOMÁTICO EN EL TELÉFONO ──
       document.getElementById('guardar-movil').addEventListener('click', async () => {
         const cantidad = parseInt(document.getElementById('cantidad-movil').value);
         const precio = parseFloat(document.getElementById('precio-movil').value);
-
-        if (isNaN(cantidad) || cantidad <= 0) return alert('Por favor, ingrese una cantidad válida');
-        if (isNaN(precio) || precio < 0) return alert('Por favor, ingrese un precio válido');
+        if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
+        if (isNaN(precio) || precio < 0) return alert('Precio inválido');
 
         try {
           let productoId = null;
           let nombreFinal = "";
 
           if (esProductoNuevo) {
-            // 1. Si es nuevo, primero creamos el producto en la tabla 'productos'
             const nombreNuevo = document.getElementById('nuevo-nombre-movil').value.trim();
             if (!nombreNuevo) return alert('Debes escribir un nombre para el producto nuevo');
             nombreFinal = nombreNuevo;
 
+            // Intentar insertar el nuevo producto
             const { data: nuevoProd, error: errProd } = await client.from('productos').insert({
               codigo_barras: codigoEscaneadoActual,
               nombre: nombreNuevo,
-              precio_compra: precio // Guarda el precio actual como referencia inicial
+              precio_compra: precio
             }).select().single();
 
-            if (errProd) throw errProd;
-            productoId = nuevoProd.id; // Obtenemos el ID asignado por la base de datos
+            // Si falla por duplicado, buscar el producto existente
+            if (errProd) {
+              if (errProd.code === '23505') { // unique violation
+                console.warn('Conflicto de duplicado, buscando producto existente...');
+                const { data: existente, error: errBusq } = await client.from('productos')
+                  .select('*').eq('codigo_barras', codigoEscaneadoActual).single();
+                if (existente) {
+                  productoActual = existente;
+                  productoId = existente.id;
+                  nombreFinal = existente.nombre;
+                  esProductoNuevo = false; // ahora es existente
+                  // actualizar precio de referencia
+                  await client.from('productos').update({ precio_compra: precio }).eq('id', productoId);
+                } else {
+                  throw errProd; // otro error
+                }
+              } else {
+                throw errProd;
+              }
+            } else {
+              productoId = nuevoProd.id;
+            }
           } else {
-            // 2. Si ya existía, usamos su ID actual e igual actualizamos su costo de referencia
             productoId = productoActual.id;
             nombreFinal = productoActual.nombre;
-
-            await client.from('productos').update({ 
-              precio_compra: precio 
-            }).eq('id', productoId);
+            await client.from('productos').update({ precio_compra: precio }).eq('id', productoId);
           }
 
-          // 3. Insertar la transacción de entrada en 'entradas_inventario'
+          // Insertar entrada de inventario
           const { error: errEntrada } = await client.from('entradas_inventario').insert({
             producto_id: productoId,
             cantidad: cantidad,
             precio_unitario: precio
           });
-
           if (errEntrada) throw errEntrada;
 
-          // Todo salió bien
-          alert(`🎉 Éxito:\nSe guardaron ${cantidad} unidades de "${nombreFinal}" correctamente.`);
-          
-          // Limpiar pantalla para el próximo escaneo
+          alert(`🎉 Guardado: ${cantidad} uds. de "${nombreFinal}"`);
           formDiv.style.display = 'none';
           resultadoDiv.innerHTML = '';
           productoActual = null;
@@ -320,7 +295,7 @@
 
         } catch (err) {
           console.error(err);
-          alert('Error crítico al procesar la operación: ' + err.message);
+          alert('Error: ' + err.message);
         }
       });
 
@@ -335,7 +310,6 @@
       btnIniciar.addEventListener('click', startCamera);
       btnDetener.addEventListener('click', stopCamera);
       btnLinterna.addEventListener('click', toggleTorch);
-
       window.addEventListener('load', () => { btnIniciar.style.display = 'block'; });
     })();
   </script>
