@@ -18,7 +18,7 @@
       background-color: var(--bg);
       color: var(--text);
       font-family: 'Roboto', sans-serif;
-      padding-bottom: 80px; /* Espacio para el nav inferior */
+      padding-bottom: 80px;
       touch-action: manipulation;
     }
     /* Estilos de App Nativa */
@@ -76,6 +76,7 @@
       background: #2B2B2B; border: 1px solid #444; color: white; border-radius: 12px; padding: 12px;
     }
     .form-control:focus { background: #333; border-color: var(--primary); color: white; box-shadow: none; }
+    .form-control:disabled { background: #1a1a1a; color: #888; }
     
     /* Botón Flotante (FAB) */
     .fab {
@@ -100,6 +101,10 @@
     .modal-content { background: var(--card-bg); color: var(--text); border-radius: 20px; }
     .modal-header { border-bottom: 1px solid #333; }
     .modal-footer { border-top: 1px solid #333; }
+    
+    /* Cajas de Alerta Personalizadas */
+    .alert-naranja { background-color: #ffb74d; color: #4e342e; border-radius: 12px; border: none; }
+    .alert-verde { background-color: #4caf50; color: #ffffff; border-radius: 12px; border: none; }
   </style>
 </head>
 <body>
@@ -118,7 +123,14 @@
     </div>
     
     <div id="form-ingreso" class="card p-3 shadow" style="display: none;">
-      <h6 id="ingreso-titulo" class="text-success mb-3">Producto Detectado</h6>
+      
+      <div id="msg-nuevo" class="alert alert-naranja fw-bold mb-3 shadow-sm" style="display: none;">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>El producto es nuevo, por favor ingresa los datos para almacenarlo.
+      </div>
+      <div id="msg-existente" class="alert alert-verde fw-bold mb-3 shadow-sm" style="display: none;">
+        <i class="bi bi-check-circle-fill me-2"></i>El producto ya está, ¡Actualízalo!
+      </div>
+
       <input type="hidden" id="ingreso-codigo">
       
       <div class="mb-3" id="div-nombre-nuevo">
@@ -126,19 +138,24 @@
         <input type="text" id="ingreso-nombre" class="form-control" placeholder="Ej. Harina Pan 1kg">
       </div>
       
-      <div class="row g-2 mb-3">
+      <div class="mb-3">
+        <label class="form-label text-muted small">Cantidad a sumar (Unidades)</label>
+        <input type="number" id="ingreso-cantidad" class="form-control" min="1" value="1">
+      </div>
+
+      <div class="row g-2 mb-4">
         <div class="col-6">
-          <label class="form-label text-muted small">Cantidad a sumar</label>
-          <input type="number" id="ingreso-cantidad" class="form-control" min="1" value="1">
+          <label class="form-label text-muted small">Costo Compra ($)</label>
+          <input type="number" id="ingreso-costo" class="form-control" step="0.01" min="0" placeholder="0.00">
         </div>
         <div class="col-6">
-          <label class="form-label text-muted small">Costo ($)</label>
-          <input type="number" id="ingreso-costo" class="form-control" step="0.01" min="0">
+          <label class="form-label text-muted small fw-bold text-info">Precio Público ($)</label>
+          <input type="number" id="ingreso-pvp" class="form-control border-info" step="0.01" min="0" placeholder="0.00">
         </div>
       </div>
       
       <div class="d-flex gap-2">
-        <button class="btn btn-success w-100 rounded-pill" onclick="guardarIngreso()">Guardar</button>
+        <button class="btn btn-success w-100 rounded-pill fw-bold py-2" onclick="guardarIngreso()">Guardar Datos</button>
         <button class="btn btn-outline-light rounded-pill px-4" onclick="cerrarFormulario('form-ingreso')">Cancelar</button>
       </div>
     </div>
@@ -171,12 +188,12 @@
   <div class="modal fade" id="modalEscaner" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Escaneando...</h5>
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title text-muted">Escaneando...</h5>
           <button type="button" class="btn-close btn-close-white" onclick="cerrarEscaner()"></button>
         </div>
-        <div class="modal-body p-0">
-          <div id="reader"></div>
+        <div class="modal-body p-3">
+          <div id="reader" class="shadow"></div>
         </div>
       </div>
     </div>
@@ -196,16 +213,16 @@
           <div class="card p-3 bg-dark mb-3">
             <div class="d-flex justify-content-between mb-2">
               <span class="text-muted">Costo Base:</span>
-              <span id="venta-costo" class="fw-bold"></span>
+              <span id="venta-costo" class="fw-bold text-secondary"></span>
             </div>
             <div class="d-flex justify-content-between mb-2">
-              <span class="text-muted">Precio Venta (+3%):</span>
+              <span class="text-muted">Precio de Venta (PVP):</span>
               <span id="venta-precio-usd" class="text-success fw-bold fs-5"></span>
             </div>
             <hr class="border-secondary">
             <div class="d-flex justify-content-between">
-              <span class="text-muted">A Cobrar en Bs:</span>
-              <span id="venta-precio-bs" class="text-warning fw-bold fs-4"></span>
+              <span class="text-muted mt-1">A Cobrar en Bs:</span>
+              <span id="venta-precio-bs" class="text-warning fw-bold fs-3"></span>
             </div>
           </div>
           
@@ -225,14 +242,14 @@
           
           <div class="tab-content">
             <div class="tab-pane fade show active" id="tab-contado">
-              <button class="btn btn-success w-100 rounded-pill py-3 fw-bold fs-5" onclick="procesarVenta('contado')">Confirmar Venta</button>
+              <button class="btn btn-success w-100 rounded-pill py-3 fw-bold fs-5 shadow" onclick="procesarVenta('contado')">Confirmar Venta</button>
             </div>
             <div class="tab-pane fade" id="tab-fiado">
               <select id="select-cliente" class="form-select mb-2">
                 <option value="">Seleccione un cliente...</option>
               </select>
               <button class="btn btn-outline-info w-100 mb-3 rounded-pill btn-sm" onclick="crearCliente()">+ Nuevo Cliente</button>
-              <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold fs-5" onclick="procesarVenta('fiado')">Registrar Deuda</button>
+              <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold fs-5 shadow" onclick="procesarVenta('fiado')">Registrar Deuda</button>
             </div>
           </div>
         </div>
@@ -245,13 +262,13 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // Configuración Supabase (Corregida la variable a 'client')
+    // Configuración Supabase
     const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let html5QrCode = null;
-    let accionActual = ''; // 'ingreso' o 'venta'
+    let accionActual = ''; 
     let tasaBCV = 1;
     let inventarioCache = [];
     let modalVentaObj = null;
@@ -275,7 +292,9 @@
       elementoNav.classList.add('active');
     }
 
-    function cerrarFormulario(id) { document.getElementById(id).style.display = 'none'; }
+    function cerrarFormulario(id) { 
+      document.getElementById(id).style.display = 'none'; 
+    }
 
     // Tasa BCV
     async function obtenerTasaBCV() {
@@ -302,7 +321,7 @@
             procesarCodigoEscaneado(codigoText.trim());
           },
           (err) => {}
-        ).catch(err => alert("Error de cámara"));
+        ).catch(err => alert("Error de cámara, asegúrese de dar permisos."));
       }, 300);
     }
 
@@ -322,58 +341,80 @@
         document.getElementById('ingreso-cantidad').value = 1;
         
         if (data) {
+          // PRODUCTO EXISTENTE (Verde)
           esNuevoProducto = false;
-          document.getElementById('ingreso-titulo').textContent = "📝 Actualizar Stock: " + data.nombre;
-          document.getElementById('ingreso-titulo').className = "text-primary mb-3 fw-bold";
+          document.getElementById('msg-nuevo').style.display = 'none';
+          document.getElementById('msg-existente').style.display = 'block';
+          
           document.getElementById('ingreso-nombre').value = data.nombre;
           document.getElementById('ingreso-nombre').disabled = true;
           document.getElementById('ingreso-costo').value = data.precio_compra || '';
+          document.getElementById('ingreso-pvp').value = data.precio_venta || '';
         } else {
+          // PRODUCTO NUEVO (Naranja)
           esNuevoProducto = true;
-          document.getElementById('ingreso-titulo').textContent = "🆕 Producto Nuevo Encontrado";
-          document.getElementById('ingreso-titulo').className = "text-warning mb-3 fw-bold";
+          document.getElementById('msg-existente').style.display = 'none';
+          document.getElementById('msg-nuevo').style.display = 'block';
+          
           document.getElementById('ingreso-nombre').value = "";
           document.getElementById('ingreso-nombre').disabled = false;
           document.getElementById('ingreso-costo').value = "";
+          document.getElementById('ingreso-pvp').value = "";
         }
+        
       } else if (accionActual === 'venta') {
-        if (!data) return alert("❌ Producto no registrado en el sistema.");
+        if (!data) return alert("❌ Producto no registrado en el sistema. Ingréselo primero por la sección de Ingresos.");
         abrirModalVenta(data);
       }
     }
 
-    // Guardar Ingreso (Agrega costo)
+    // Guardar Ingreso (Actualiza Costo y Precio Venta Público)
     async function guardarIngreso() {
       const codigo = document.getElementById('ingreso-codigo').value;
       const nombre = document.getElementById('ingreso-nombre').value;
       const cantidad = parseInt(document.getElementById('ingreso-cantidad').value);
       const costo = parseFloat(document.getElementById('ingreso-costo').value);
+      const pvp = parseFloat(document.getElementById('ingreso-pvp').value);
 
-      if (!nombre || isNaN(cantidad) || isNaN(costo)) return alert("Llene todos los campos correctamente");
+      if (!nombre || isNaN(cantidad) || isNaN(costo) || isNaN(pvp)) {
+        return alert("Llene todos los campos correctamente. No deje el Costo ni el PVP vacíos.");
+      }
 
       let productoId;
       try {
         if (esNuevoProducto) {
           const { data: pNuevo, error: eNuevo } = await client.from('productos')
-            .insert({ codigo_barras: codigo, nombre, precio_compra: costo }).select().single();
+            .insert({ 
+              codigo_barras: codigo, 
+              nombre: nombre, 
+              precio_compra: costo,
+              precio_venta: pvp
+            }).select().single();
+            
           if (eNuevo) throw eNuevo;
           productoId = pNuevo.id;
         } else {
           const { data: pExist } = await client.from('productos').select('id').eq('codigo_barras', codigo).single();
           productoId = pExist.id;
-          // Actualizamos el costo base
-          await client.from('productos').update({ precio_compra: costo }).eq('id', productoId);
+          
+          // Actualizamos el costo base y el nuevo PVP
+          await client.from('productos').update({ 
+            precio_compra: costo, 
+            precio_venta: pvp 
+          }).eq('id', productoId);
         }
 
-        // Registrar entrada
+        // Registrar entrada al inventario
         await client.from('entradas_inventario').insert({
-          producto_id: productoId, cantidad, precio_unitario: costo
+          producto_id: productoId, 
+          cantidad: cantidad, 
+          precio_unitario: costo
         });
 
-        alert("✅ Ingreso registrado con éxito");
+        alert("✅ Datos guardados con éxito.");
         cerrarFormulario('form-ingreso');
-        cargarInventarioVentas(); // Refrescar la lista de ventas
-      } catch (err) { alert("Error: " + err.message); }
+        cargarInventarioVentas(); // Refrescar la lista de ventas en segundo plano
+      } catch (err) { alert("Error al guardar: " + err.message); }
     }
 
     // Funciones de Venta
@@ -391,13 +432,14 @@
       const filtrados = inventarioCache.filter(p => p.nombre.toLowerCase().includes(query) || (p.codigo_barras && p.codigo_barras.includes(query))).slice(0, 5); 
       
       filtrados.forEach(p => {
+        const pvp_mostrar = parseFloat(p.precio_venta || (p.precio_compra * 1.03)).toFixed(2);
         const divItem = document.createElement('div');
         divItem.className = 'card p-3 d-flex flex-row justify-content-between align-items-center shadow-sm';
         divItem.style.cursor = 'pointer';
         divItem.onclick = () => abrirModalVenta(p);
         divItem.innerHTML = `
-          <div><div class="fw-bold">${p.nombre}</div><div class="small text-muted">Costo: $${p.precio_compra}</div></div>
-          <i class="bi bi-cart-plus text-primary fs-4"></i>
+          <div><div class="fw-bold">${p.nombre}</div><div class="small text-info">PVP: $${pvp_mostrar}</div></div>
+          <i class="bi bi-cart-plus text-primary fs-3"></i>
         `;
         div.appendChild(divItem);
       });
@@ -409,7 +451,12 @@
     function abrirModalVenta(producto) {
       productoVentaActual = producto;
       const costo = parseFloat(producto.precio_compra || 0);
-      precioVentaUsdActual = costo * 1.03; // +3% Ganancia
+      let pvp = parseFloat(producto.precio_venta || 0);
+      
+      // Si por alguna razón el PVP es 0 o no existe, usamos la regla vieja de +3%
+      if(pvp <= 0) pvp = costo * 1.03; 
+      
+      precioVentaUsdActual = pvp;
       const precioBs = precioVentaUsdActual * tasaBCV;
 
       document.getElementById('venta-nombre').textContent = producto.nombre;
@@ -436,7 +483,7 @@
       if (!nombre) return;
       const tel = prompt("Teléfono (Opcional):") || '';
       await client.from('clientes').insert({ nombre, telefono: tel });
-      alert("Cliente registrado");
+      alert("Cliente registrado correctamente");
       await cargarClientes();
     }
 
@@ -447,7 +494,7 @@
       let clienteId = null;
       if (tipo === 'fiado') {
         clienteId = document.getElementById('select-cliente').value;
-        if (!clienteId) return alert("Debes seleccionar un cliente para fiar.");
+        if (!clienteId) return alert("⚠️ Debes seleccionar un cliente para fiar.");
       }
 
       try {
