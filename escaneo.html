@@ -7,67 +7,93 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
-    body { background: #f8f9fa; padding-bottom: 50px; }
-    .card { border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: none; }
-    #reader { width: 100%; border-radius: 8px; overflow: hidden; border: 2px solid #0d6efd; }
-    .bcv-badge { background: #e2e3e5; padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 0.9rem; }
-    .preview-usd { font-size: 0.85rem; color: #dc3545; font-weight: bold; }
+    body { background: #f8f9fa; padding-bottom: 40px; }
+    .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; margin-bottom: 20px; }
+    .card-header { border-radius: 15px 15px 0 0 !important; border-bottom: none; }
+    .tasa-bcv { font-size: 0.9rem; background: #ffffff; color: #198754; padding: 5px 12px; border-radius: 8px; border: 1px solid #198754; }
+    #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 2px dashed #0d6efd; }
+    .info-box { background: #e9ecef; border-radius: 8px; padding: 10px; font-size: 0.9rem; }
   </style>
 </head>
 <body>
 
-  <div class="bg-primary text-white p-3 shadow-sm d-flex justify-content-between align-items-center mb-3">
-    <h5 class="m-0"><i class="bi bi-upc-scan me-2"></i>Escáner de Bodega</h5>
-    <div id="tasa-bcv-display" class="bcv-badge text-dark">Tasa BCV: Cargando...</div>
-  </div>
+  <div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex align-items-center">
+        <i class="bi bi-phone-vibrate fs-2 me-2 text-primary"></i>
+        <h4 class="fw-bold m-0">Ingreso Móvil</h4>
+      </div>
+      <span id="tasa-actual" class="tasa-bcv fw-bold">Cargando BCV...</span>
+    </div>
 
-  <div class="container">
-    <div class="card mb-3">
-      <div class="card-body p-2 text-center">
-        <div id="reader" class="mb-2"></div>
-        <button id="btn-scan" class="btn btn-outline-primary w-100 fw-bold">
+    <div class="card">
+      <div class="card-header bg-primary text-white fw-semibold">
+        <i class="bi bi-upc-scan me-2"></i>Lector de Códigos
+      </div>
+      <div class="card-body p-3 text-center">
+        <div id="reader" class="mb-3"></div>
+        <button id="btn-scan" class="btn btn-outline-primary w-100 fw-bold shadow-sm">
           <i class="bi bi-camera me-2"></i>Activar Cámara
         </button>
       </div>
     </div>
 
     <div class="card">
+      <div class="card-header bg-success text-white fw-semibold">
+        <i class="bi bi-box-seam me-2"></i>Datos y Ganancia Proyectada
+      </div>
       <div class="card-body">
-        <h6 class="card-title fw-bold text-secondary mb-3 border-bottom pb-2">Datos del Producto</h6>
         
-        <div class="mb-3">
-          <label class="form-label small text-muted">Código de Barras</label>
-          <div class="input-group">
-            <input type="text" id="codigo" class="form-control" placeholder="Ej: 759123456789">
-            <button class="btn btn-secondary" id="btn-buscar"><i class="bi bi-search"></i></button>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label small text-muted">Nombre del Producto</label>
-          <input type="text" id="nombre" class="form-control" placeholder="Ej: Harina Pan 1kg">
-        </div>
-
         <div class="row g-2 mb-3">
-          <div class="col-6">
-            <label class="form-label small text-muted">Costo (Bs)</label>
-            <input type="number" id="costo-bs" class="form-control border-danger" step="0.01" min="0" placeholder="0.00">
-            <div class="preview-usd mt-1" id="costo-usd-preview">Eq: $0.00</div>
+          <div class="col-9">
+            <label class="form-label small text-muted mb-1">Código de barras</label>
+            <input type="text" id="codigo" class="form-control" placeholder="Escanear o escribir">
           </div>
-          <div class="col-6">
-            <label class="form-label small text-muted">PVP Venta ($)</label>
-            <input type="number" id="pvp-usd" class="form-control border-success" step="0.01" min="0" placeholder="0.00">
-            <div class="mt-1" style="font-size: 0.85rem; color: #198754; font-weight: bold;" id="pvp-bs-preview">Eq: Bs 0.00</div>
+          <div class="col-3 d-grid">
+            <label class="form-label small text-white mb-1">.</label>
+            <button class="btn btn-outline-secondary" id="btn-buscar"><i class="bi bi-search"></i></button>
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="form-label small text-muted">Cantidad a Ingresar (Stock)</label>
-          <input type="number" id="cantidad" class="form-control form-control-lg text-center" value="1" min="1">
+          <label class="form-label small text-muted mb-1">Nombre del Producto</label>
+          <input type="text" id="nombre" class="form-control fw-semibold" placeholder="Ej: Harina Pan 1kg">
+        </div>
+
+        <hr class="text-muted">
+
+        <div class="row g-3 mb-2 align-items-end">
+          <div class="col-6">
+            <label class="form-label small text-muted mb-1">Cantidad comprada</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash"></i></span>
+              <input type="number" id="cantidad" class="form-control text-center" value="1" min="1">
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label small text-muted mb-1">Costo TOTAL (Bs)</label>
+            <input type="number" id="costo-total-bs" class="form-control border-danger bg-light" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="info-box mb-3 text-center" id="preview-costo-unitario">
+          Costo Unitario: <strong>$0.00</strong> <small class="text-muted">(Bs 0.00)</small>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label small text-muted mb-1">Precio de Venta al Público - PVP ($)</label>
+          <div class="input-group">
+            <span class="input-group-text bg-success text-white border-success">$</span>
+            <input type="number" id="pvp-usd" class="form-control border-success fw-bold" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="info-box mb-4 text-center border border-success bg-white" id="preview-ganancia">
+          <span class="text-muted">Ganancia: Esperando datos...</span>
         </div>
 
         <button id="btn-guardar" class="btn btn-success w-100 py-2 fw-bold fs-5 shadow-sm">
-          <i class="bi bi-save me-2"></i>Guardar en Sistema
+          <i class="bi bi-save me-2"></i>Guardar en Inventario
         </button>
         
         <div id="mensaje" class="mt-3 text-center fw-bold"></div>
@@ -85,9 +111,10 @@
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      let tasaDolar = 1; // Fallback
+      let tasaDolar = 1; 
       let productoIdActual = null;
       let html5QrcodeScanner = null;
+      let costoUnitarioGlobalUsd = 0; // Para enviarlo a la BD
 
       // ──────── TASA BCV ────────
       async function obtenerTasaBCV() {
@@ -95,130 +122,139 @@
           const resp = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
           const data = await resp.json();
           tasaDolar = parseFloat(data.promedio);
-          document.getElementById('tasa-bcv-display').innerHTML = `BCV: Bs ${tasaDolar.toFixed(2)}`;
+          document.getElementById('tasa-actual').innerHTML = `<i class="bi bi-bank me-1"></i>BCV: Bs ${tasaDolar.toFixed(2)}`;
+          calcularValores(); // Recalcular si ya había números
         } catch (error) {
           console.error("Error BCV:", error);
-          document.getElementById('tasa-bcv-display').innerHTML = `<span class="text-danger">BCV Error</span>`;
+          document.getElementById('tasa-actual').innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> BCV Error</span>`;
+        }
+      }
+      obtenerTasaBCV();
+
+      // ──────── CÁLCULOS DE COSTOS Y GANANCIAS ────────
+      const inputCantidad = document.getElementById('cantidad');
+      const inputTotalBs = document.getElementById('costo-total-bs');
+      const inputPvpUsd = document.getElementById('pvp-usd');
+
+      function calcularValores() {
+        if (tasaDolar === 1) return; // Esperar a que cargue la tasa real
+
+        const qty = parseInt(inputCantidad.value) || 1;
+        const totalBs = parseFloat(inputTotalBs.value) || 0;
+        const pvpUsd = parseFloat(inputPvpUsd.value) || 0;
+
+        // 1. Costo por unidad
+        const unitarioBs = totalBs / qty;
+        costoUnitarioGlobalUsd = unitarioBs / tasaDolar; // Guardamos en variable global para la BD
+        
+        document.getElementById('preview-costo-unitario').innerHTML = 
+          `Costo Unitario: <strong class="text-danger">$${costoUnitarioGlobalUsd.toFixed(2)}</strong> <small class="text-muted">(Bs ${unitarioBs.toFixed(2)})</small>`;
+
+        // 2. Proyección de Ganancia
+        if (costoUnitarioGlobalUsd > 0 && pvpUsd > 0) {
+          const gananciaUsd = pvpUsd - costoUnitarioGlobalUsd;
+          const gananciaPct = (gananciaUsd / costoUnitarioGlobalUsd) * 100;
+          
+          let colorClass = gananciaUsd > 0 ? 'text-success' : 'text-danger';
+          let iconClass = gananciaUsd > 0 ? 'bi-graph-up-arrow' : 'bi-graph-down-arrow';
+          
+          document.getElementById('preview-ganancia').innerHTML = 
+            `<span class="${colorClass}"><i class="bi ${iconClass} me-1"></i>Ganancia: <strong>$${gananciaUsd.toFixed(2)}</strong> por und. <span class="badge bg-success ms-1">+${gananciaPct.toFixed(1)}%</span></span>`;
+        } else {
+          document.getElementById('preview-ganancia').innerHTML = `<span class="text-muted"><i class="bi bi-info-circle me-1"></i>Ingresa el precio de venta para ver la ganancia</span>`;
         }
       }
 
-      obtenerTasaBCV();
+      // Escuchar cambios en tiempo real
+      inputCantidad.addEventListener('input', calcularValores);
+      inputTotalBs.addEventListener('input', calcularValores);
+      inputPvpUsd.addEventListener('input', calcularValores);
 
-      // ──────── CÁLCULOS DINÁMICOS EN PANTALLA ────────
-      const inputCostoBs = document.getElementById('costo-bs');
-      const previewCostoUsd = document.getElementById('costo-usd-preview');
-      
-      const inputPvpUsd = document.getElementById('pvp-usd');
-      const previewPvpBs = document.getElementById('pvp-bs-preview');
-
-      inputCostoBs.addEventListener('input', () => {
-        let bs = parseFloat(inputCostoBs.value) || 0;
-        let usd = bs / tasaDolar;
-        previewCostoUsd.innerText = `Eq: $${usd.toFixed(2)}`;
-        
-        // Sugerir PVP si está vacío (Costo + 30% por ejemplo, ajusta a tu gusto)
-        if(inputPvpUsd.value === "" && usd > 0) {
-            inputPvpUsd.value = (usd * 1.30).toFixed(2);
-            inputPvpUsd.dispatchEvent(new Event('input')); // Forzar cálculo de PVP en Bs
-        }
-      });
-
-      inputPvpUsd.addEventListener('input', () => {
-        let usd = parseFloat(inputPvpUsd.value) || 0;
-        let bs = usd * tasaDolar;
-        previewPvpBs.innerText = `Eq: Bs ${bs.toFixed(2)}`;
-      });
 
       // ──────── ESCÁNER DE CÁMARA ────────
       document.getElementById('btn-scan').addEventListener('click', () => {
         if (!html5QrcodeScanner) {
           html5QrcodeScanner = new Html5Qrcode("reader");
-          const config = { fps: 10, qrbox: { width: 250, height: 150 }, facingMode: "environment" };
+          const config = { fps: 10, qrbox: { width: 250, height: 150 } };
           
           html5QrcodeScanner.start({ facingMode: "environment" }, config, 
             (decodedText) => {
-              // Éxito al escanear
               document.getElementById('codigo').value = decodedText;
               buscarProducto(decodedText);
-              // Detener escáner temporalmente
               html5QrcodeScanner.stop();
-              document.getElementById('btn-scan').innerHTML = '<i class="bi bi-camera me-2"></i>Escanear de nuevo';
+              document.getElementById('btn-scan').innerHTML = '<i class="bi bi-camera me-2"></i>Escanear otro producto';
             },
-            (error) => { /* ignorar errores de frame */ }
+            (error) => { /* ignorar frames vacíos */ }
           ).catch(err => alert("Error con la cámara. Verifica los permisos."));
         } else {
           html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, ...callbacks);
         }
       });
 
-      // ──────── BUSCAR PRODUCTO ────────
+      // ──────── BUSCAR PRODUCTO EN BD ────────
       document.getElementById('btn-buscar').addEventListener('click', () => {
         const codigo = document.getElementById('codigo').value.trim();
         if (codigo) buscarProducto(codigo);
       });
 
       async function buscarProducto(codigo) {
-        mostrarMensaje("Buscando...", "text-primary");
+        mostrarMensaje('<span class="spinner-border spinner-border-sm me-2"></span>Buscando...', "text-primary");
         const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
         
         if (data) {
           productoIdActual = data.id;
           document.getElementById('nombre').value = data.nombre;
           
-          // Mostrar el costo anterior convertido a Bs para referencia
+          // Llenar datos anteriores para facilitar el trabajo
           const costoAnteriorUsd = parseFloat(data.precio_compra || 0);
-          inputCostoBs.value = (costoAnteriorUsd * tasaDolar).toFixed(2);
-          inputCostoBs.dispatchEvent(new Event('input')); // Disparar conversión
-          
+          inputCantidad.value = 1; // Por defecto 1 unidad
+          inputTotalBs.value = (costoAnteriorUsd * tasaDolar).toFixed(2); // Convertir su costo anterior a Bs de hoy
           inputPvpUsd.value = parseFloat(data.precio_venta || 0).toFixed(2);
-          inputPvpUsd.dispatchEvent(new Event('input')); // Disparar conversión
           
-          mostrarMensaje("Producto encontrado. Actualiza datos si es necesario.", "text-success");
+          calcularValores();
+          mostrarMensaje('<i class="bi bi-check-circle me-1"></i>Producto encontrado', "text-success");
         } else {
           productoIdActual = null;
           document.getElementById('nombre').value = "";
-          inputCostoBs.value = "";
+          inputCantidad.value = "1";
+          inputTotalBs.value = "";
           inputPvpUsd.value = "";
-          previewCostoUsd.innerText = "Eq: $0.00";
-          previewPvpBs.innerText = "Eq: Bs 0.00";
-          mostrarMensaje("Producto nuevo. Llena los datos para registrarlo.", "text-warning");
+          calcularValores();
+          mostrarMensaje('<i class="bi bi-star me-1"></i>Producto nuevo. Completa los datos.', "text-warning");
         }
       }
 
-      // ──────── GUARDAR DATOS ────────
+      // ──────── GUARDAR EN INVENTARIO ────────
       document.getElementById('btn-guardar').addEventListener('click', async () => {
         const codigo = document.getElementById('codigo').value.trim();
         const nombre = document.getElementById('nombre').value.trim();
-        const costoBs = parseFloat(inputCostoBs.value);
         const pvpUsd = parseFloat(inputPvpUsd.value);
-        const cantidad = parseInt(document.getElementById('cantidad').value);
+        const cantidad = parseInt(inputCantidad.value);
 
-        if (!codigo || !nombre || isNaN(costoBs) || isNaN(pvpUsd) || isNaN(cantidad)) {
+        if (!codigo || !nombre || isNaN(costoUnitarioGlobalUsd) || isNaN(pvpUsd) || isNaN(cantidad) || costoUnitarioGlobalUsd <= 0) {
           mostrarMensaje("Por favor, llena todos los campos correctamente.", "text-danger");
           return;
         }
 
-        // Conversión final a USD para guardar en DB
-        const costoUsd = costoBs / tasaDolar;
         const btn = document.getElementById('btn-guardar');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrando...';
 
         try {
           let prodId = productoIdActual;
 
-          // 1. Guardar o Actualizar Producto
+          // 1. Guardar o Actualizar el Catálogo
           if (prodId) {
             await supabase.from('productos').update({
               nombre: nombre,
-              precio_compra: costoUsd,
+              precio_compra: costoUnitarioGlobalUsd,
               precio_venta: pvpUsd
             }).eq('id', prodId);
           } else {
             const { data: nuevoProd, error: errInsert } = await supabase.from('productos').insert({
               codigo_barras: codigo,
               nombre: nombre,
-              precio_compra: costoUsd,
+              precio_compra: costoUnitarioGlobalUsd,
               precio_venta: pvpUsd
             }).select().single();
             
@@ -226,44 +262,44 @@
             prodId = nuevoProd.id;
           }
 
-          // 2. Registrar Entrada de Inventario (Sumar Stock)
+          // 2. Registrar Entrada (Stock)
           const { error: errEntrada } = await supabase.from('entradas_inventario').insert({
             producto_id: prodId,
             cantidad: cantidad,
-            precio_unitario: costoUsd
+            precio_unitario: costoUnitarioGlobalUsd
           });
 
           if (errEntrada) throw errEntrada;
 
-          mostrarMensaje("¡Guardado con éxito!", "text-success");
+          mostrarMensaje('<i class="bi bi-check2-all fs-4 d-block"></i>¡Registrado con éxito!', "text-success");
           
-          // Limpiar formulario para el siguiente escaneo
+          // Limpiar formulario
           setTimeout(() => {
             document.getElementById('codigo').value = "";
             document.getElementById('nombre').value = "";
-            inputCostoBs.value = "";
+            inputCantidad.value = "1";
+            inputTotalBs.value = "";
             inputPvpUsd.value = "";
-            document.getElementById('cantidad').value = "1";
-            previewCostoUsd.innerText = "Eq: $0.00";
-            previewPvpBs.innerText = "Eq: Bs 0.00";
             productoIdActual = null;
             document.getElementById('mensaje').innerHTML = "";
+            calcularValores();
+            
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-save me-2"></i>Guardar en Sistema';
-          }, 2000);
+            btn.innerHTML = '<i class="bi bi-save me-2"></i>Guardar en Inventario';
+          }, 2500);
 
         } catch (error) {
           console.error(error);
-          mostrarMensaje("Error al guardar en la base de datos.", "text-danger");
+          mostrarMensaje('<i class="bi bi-x-circle me-1"></i>Error de conexión', "text-danger");
           btn.disabled = false;
-          btn.innerHTML = '<i class="bi bi-save me-2"></i>Guardar en Sistema';
+          btn.innerHTML = '<i class="bi bi-save me-2"></i>Reintentar Guardado';
         }
       });
 
       function mostrarMensaje(texto, clase) {
         const msgDiv = document.getElementById('mensaje');
-        msgDiv.className = `mt-3 text-center fw-bold ${clase}`;
-        msgDiv.innerText = texto;
+        msgDiv.className = `mt-3 text-center fw-bold fs-6 ${clase}`;
+        msgDiv.innerHTML = texto;
       }
 
     })();
