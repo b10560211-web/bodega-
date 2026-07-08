@@ -2,307 +2,529 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bodega - Escáner Móvil</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bodega Móvil · Gestión Completa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
-    body { background: #f8f9fa; padding-bottom: 40px; }
-    .card { border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; margin-bottom: 20px; }
-    .card-header { border-radius: 15px 15px 0 0 !important; border-bottom: none; }
-    .tasa-bcv { font-size: 0.9rem; background: #ffffff; color: #198754; padding: 5px 12px; border-radius: 8px; border: 1px solid #198754; }
-    #reader { width: 100%; border-radius: 10px; overflow: hidden; border: 2px dashed #0d6efd; }
-    .info-box { background: #e9ecef; border-radius: 8px; padding: 10px; font-size: 0.9rem; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(145deg, #f0f4ff 0%, #e8f0fe 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px 12px 32px;
+      color: #1a1e2b;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-radius: 36px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 20px 16px 24px;
+      border: 1px solid rgba(255,255,255,0.6);
+      transition: all 0.3s ease;
+    }
+    .screen { display: none; flex-direction: column; gap: 20px; }
+    .screen.active { display: flex; }
+    .status-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 8px 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 6px; }
+    .brand-icon {
+      background: #2563eb; color: white; width: 36px; height: 36px;
+      border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .brand-text { font-weight: 700; font-size: 1.2rem; color: #0f172a; }
+    .tasa-chip {
+      background: #f0fdf4; border-radius: 30px; padding: 8px 14px; font-size: 0.8rem;
+      font-weight: 600; display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid #d1d5db; color: #065f46;
+    }
+    .card {
+      background: white; border-radius: 28px; padding: 20px 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.03);
+    }
+    .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-weight: 600; color: #1e293b; }
+    .card-header i { font-size: 1.4rem; color: #2563eb; }
+    .scanner-wrapper {
+      position: relative; width: 100%; aspect-ratio: 4/3; background: #f8fafc;
+      border-radius: 24px; overflow: hidden; margin-bottom: 16px; border: 2px dashed #94a3b8;
+    }
+    #reader { width: 100%; height: 100%; object-fit: cover; }
+    .flash-btn {
+      position: absolute; top: 16px; right: 60px; width: 40px; height: 40px;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; color: white;
+      font-size: 1.2rem; border: none; cursor: pointer; z-index: 20;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s;
+    }
+    .flash-btn.active { background: #facc15; color: #000; box-shadow: 0 0 15px #facc15; }
+    .btn {
+      border: none; border-radius: 20px; padding: 14px; font-weight: 600;
+      font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px;
+      cursor: pointer; transition: 0.2s; width: 100%;
+    }
+    .btn-primary { background: #2563eb; color: white; box-shadow: 0 10px 20px -8px #2563eb; }
+    .btn-success { background: #059669; color: white; box-shadow: 0 10px 20px -8px #059669; }
+    .btn-outline { background: #f9fafb; border: 2px solid #e2e8f0; color: #1e293b; }
+    .btn:active { transform: scale(0.97); }
+    .input-group-custom {
+      display: flex; align-items: center; background: #f8fafc; border-radius: 16px;
+      padding: 4px; border: 1px solid #e2e8f0; transition: 0.2s;
+    }
+    .input-group-custom:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .input-group-custom span { padding: 0 12px; color: #64748b; }
+    .input-group-custom input {
+      border: none; background: transparent; padding: 12px 8px; font-size: 0.95rem;
+      width: 100%; outline: none; font-weight: 500;
+    }
+    .input-standard {
+      width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 12px 16px; font-size: 0.95rem; outline: none;
+    }
+    .cost-preview { background: #f1f5f9; border-radius: 16px; padding: 12px; text-align: center; }
+    .badge-percent { background: #059669; color: white; border-radius: 30px; padding: 2px 10px; font-size: 0.8rem; margin-left: 6px; }
+    #mensaje { font-size: 0.9rem; min-height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-box {
+      background: white; border-radius: 28px; padding: 24px; width: 90%; max-width: 360px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    .home-grid { display: flex; gap: 16px; flex-wrap: wrap; }
+    .home-card {
+      flex: 1 1 140px; background: white; border-radius: 24px; padding: 24px 16px;
+      text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,0.04); cursor: pointer;
+      transition: 0.2s; border: 1px solid rgba(0,0,0,0.03);
+    }
+    .home-card:active { transform: scale(0.96); }
+    .home-card i { font-size: 2.5rem; color: #2563eb; margin-bottom: 12px; }
+    .home-card .title { font-weight: 700; font-size: 1.1rem; }
   </style>
 </head>
 <body>
-
-  <div class="container py-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div class="d-flex align-items-center">
-        <i class="bi bi-phone-vibrate fs-2 me-2 text-primary"></i>
-        <h4 class="fw-bold m-0">Ingreso Móvil</h4>
-      </div>
-      <span id="tasa-actual" class="tasa-bcv fw-bold">Cargando BCV...</span>
+<div class="app-container" id="appContainer">
+  <!-- Barra común -->
+  <div class="status-bar">
+    <div class="brand">
+      <div class="brand-icon"><i class="bi bi-box-seam"></i></div>
+      <span class="brand-text">Bodega</span>
     </div>
-
-    <div class="card">
-      <div class="card-header bg-primary text-white fw-semibold">
-        <i class="bi bi-upc-scan me-2"></i>Lector de Códigos
-      </div>
-      <div class="card-body p-3 text-center">
-        <div id="reader" class="mb-3"></div>
-        <button id="btn-scan" class="btn btn-outline-primary w-100 fw-bold shadow-sm">
-          <i class="bi bi-camera me-2"></i>Activar Cámara
-        </button>
-      </div>
+    <div id="tasa-actual" class="tasa-chip">
+      <i class="bi bi-bank"></i> <span id="tasa-valor">Cargando...</span>
     </div>
+  </div>
 
-    <div class="card">
-      <div class="card-header bg-success text-white fw-semibold">
-        <i class="bi bi-box-seam me-2"></i>Datos y Ganancia Proyectada
+  <!-- Pantalla inicio -->
+  <div class="screen active" id="screenInicio">
+    <div class="home-grid">
+      <div class="home-card" onclick="cambiarModo('ingreso')">
+        <i class="bi bi-box-arrow-in-down"></i>
+        <div class="title">Ingreso Producto</div>
+        <small style="color:#64748b;">Agregar stock</small>
       </div>
-      <div class="card-body">
-        
-        <div class="row g-2 mb-3">
-          <div class="col-9">
-            <label class="form-label small text-muted mb-1">Código de barras</label>
-            <input type="text" id="codigo" class="form-control" placeholder="Escanear o escribir">
-          </div>
-          <div class="col-3 d-grid">
-            <label class="form-label small text-white mb-1">.</label>
-            <button class="btn btn-outline-secondary" id="btn-buscar"><i class="bi bi-search"></i></button>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label small text-muted mb-1">Nombre del Producto</label>
-          <input type="text" id="nombre" class="form-control fw-semibold" placeholder="Ej: Harina Pan 1kg">
-        </div>
-
-        <hr class="text-muted">
-
-        <div class="row g-3 mb-2 align-items-end">
-          <div class="col-6">
-            <label class="form-label small text-muted mb-1">Cantidad comprada</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash"></i></span>
-              <input type="number" id="cantidad" class="form-control text-center" value="1" min="1">
-            </div>
-          </div>
-          <div class="col-6">
-            <label class="form-label small text-muted mb-1">Costo TOTAL (Bs)</label>
-            <input type="number" id="costo-total-bs" class="form-control border-danger bg-light" step="0.01" min="0" placeholder="0.00">
-          </div>
-        </div>
-
-        <div class="info-box mb-3 text-center" id="preview-costo-unitario">
-          Costo Unitario: <strong>$0.00</strong> <small class="text-muted">(Bs 0.00)</small>
-        </div>
-
-        <div class="mb-2">
-          <label class="form-label small text-muted mb-1">Precio de Venta al Público - PVP ($)</label>
-          <div class="input-group">
-            <span class="input-group-text bg-success text-white border-success">$</span>
-            <input type="number" id="pvp-usd" class="form-control border-success fw-bold" step="0.01" min="0" placeholder="0.00">
-          </div>
-        </div>
-
-        <div class="info-box mb-4 text-center border border-success bg-white" id="preview-ganancia">
-          <span class="text-muted">Ganancia: Esperando datos...</span>
-        </div>
-
-        <button id="btn-guardar" class="btn btn-success w-100 py-2 fw-bold fs-5 shadow-sm">
-          <i class="bi bi-save me-2"></i>Guardar en Inventario
-        </button>
-        
-        <div id="mensaje" class="mt-3 text-center fw-bold"></div>
+      <div class="home-card" onclick="cambiarModo('ventas')">
+        <i class="bi bi-cart-check"></i>
+        <div class="title">Ventas</div>
+        <small style="color:#64748b;">Contado / Fiado</small>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- Pantalla Ingreso -->
+  <div class="screen" id="screenIngreso">
+    <button class="btn btn-outline" onclick="cambiarModo('inicio')" style="width:auto; align-self:flex-start;">
+      <i class="bi bi-arrow-left"></i> Volver
+    </button>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-upc-scan"></i> Lector de código</div>
+      <div class="scanner-wrapper" id="scannerIngreso">
+        <div id="readerIngreso"></div>
+        <button class="flash-btn" id="btnFlashIngreso"><i class="bi bi-lightning-charge"></i></button>
+      </div>
+      <button class="btn btn-outline" id="btnScanIngreso"><i class="bi bi-camera"></i> Activar cámara</button>
+    </div>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-info-circle"></i> Datos del producto</div>
+      <div style="display:flex; gap:10px; margin-bottom:14px;">
+        <div style="flex:3;">
+          <label style="font-size:0.8rem;">Código</label>
+          <div class="input-group-custom"><span><i class="bi bi-upc"></i></span><input type="text" id="codigoIngreso"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end;">
+          <button class="btn btn-outline" id="btnBuscarIngreso"><i class="bi bi-search"></i></button>
+        </div>
+      </div>
+      <input type="text" id="nombreIngreso" class="input-standard" placeholder="Nombre producto" style="margin-bottom:14px;">
+      <div style="display:flex; gap:10px; margin-bottom:14px;">
+        <div style="flex:1;"><label style="font-size:0.8rem;">Cantidad</label><div class="input-group-custom"><span><i class="bi bi-hash"></i></span><input type="number" id="cantidadIngreso" value="1" min="1"></div></div>
+        <div style="flex:1;"><label style="font-size:0.8rem;">Costo total Bs</label><div class="input-group-custom"><span>Bs</span><input type="number" id="costoTotalBs" step="0.01" min="0"></div></div>
+      </div>
+      <div id="previewCostoUnitario" class="cost-preview">Costo unitario: <strong>$0.00</strong></div>
+      <div style="margin-top:14px;"><label style="font-size:0.8rem;">PVP ($)</label><div class="input-group-custom"><span>$</span><input type="number" id="pvpUsdIngreso" step="0.01" min="0"></div></div>
+      <div id="previewGananciaIngreso" class="cost-preview" style="margin-top:14px; background:#f0fdf4;">Ganancia: Esperando datos...</div>
+    </div>
+    <button class="btn btn-primary" id="btnGuardarIngreso"><i class="bi bi-save2"></i> Guardar en inventario</button>
+    <div id="mensajeIngreso"></div>
+  </div>
 
-  <script>
-    (function() {
-      // Configuración Supabase
-      const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <!-- Pantalla Ventas -->
+  <div class="screen" id="screenVentas">
+    <button class="btn btn-outline" onclick="cambiarModo('inicio')" style="width:auto; align-self:flex-start;">
+      <i class="bi bi-arrow-left"></i> Volver
+    </button>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-upc-scan"></i> Buscar producto</div>
+      <div class="scanner-wrapper" id="scannerVentas">
+        <div id="readerVentas"></div>
+        <button class="flash-btn" id="btnFlashVentas"><i class="bi bi-lightning-charge"></i></button>
+      </div>
+      <button class="btn btn-outline" id="btnScanVentas"><i class="bi bi-camera"></i> Escanear</button>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <div style="flex:3;"><div class="input-group-custom"><span><i class="bi bi-upc"></i></span><input type="text" id="codigoVenta" placeholder="Código"></div></div>
+        <button class="btn btn-outline" id="btnBuscarVenta" style="flex:1;"><i class="bi bi-search"></i></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><i class="bi bi-cart"></i> Detalle venta</div>
+      <input type="text" id="nombreVenta" class="input-standard" placeholder="Producto" readonly style="margin-bottom:12px;">
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <div style="flex:1;"><label style="font-size:0.8rem;">Stock disponible</label><div class="input-group-custom"><span><i class="bi bi-boxes"></i></span><input type="text" id="stockVenta" readonly></div></div>
+        <div style="flex:1;"><label style="font-size:0.8rem;">Precio venta $</label><div class="input-group-custom"><span>$</span><input type="text" id="precioVentaMostrar" readonly></div></div>
+      </div>
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <div style="flex:1;"><label style="font-size:0.8rem;">Cantidad a vender</label><div class="input-group-custom"><span><i class="bi bi-hash"></i></span><input type="number" id="cantidadVenta" value="1" min="1"></div></div>
+        <div style="flex:1;"><label style="font-size:0.8rem;">Total $</label><div class="input-group-custom"><span>$</span><input type="text" id="totalVenta" readonly></div></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.8rem;">Tipo de venta</label>
+        <select id="tipoVenta" class="input-standard" style="appearance:auto;">
+          <option value="contado">Contado</option>
+          <option value="fiado">Fiado</option>
+        </select>
+      </div>
+      <div id="seccionCliente" style="display:none;">
+        <label style="font-size:0.8rem;">Cliente</label>
+        <select id="selectCliente" class="input-standard" style="margin-bottom:8px;"></select>
+        <button class="btn btn-outline" id="btnNuevoCliente" style="padding:10px;"><i class="bi bi-person-plus"></i> Nuevo cliente</button>
+      </div>
+    </div>
+    <button class="btn btn-success" id="btnRegistrarVenta"><i class="bi bi-cart-check"></i> Registrar venta</button>
+    <div id="mensajeVenta"></div>
+  </div>
+</div>
 
-      let tasaDolar = 1; 
-      let productoIdActual = null;
-      let html5QrcodeScanner = null;
-      let costoUnitarioGlobalUsd = 0; // Para enviarlo a la BD
+<!-- Modal nuevo cliente -->
+<div id="modalCliente" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <h4 style="margin-bottom:16px;"><i class="bi bi-person-plus"></i> Nuevo cliente</h4>
+    <input type="text" id="inputNombreCliente" class="input-standard" placeholder="Nombre" style="margin-bottom:10px;">
+    <input type="text" id="inputTelefonoCliente" class="input-standard" placeholder="Teléfono (opcional)">
+    <div style="display:flex; gap:10px; margin-top:20px;">
+      <button class="btn btn-outline" id="btnCancelarCliente">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarCliente">Guardar</button>
+    </div>
+  </div>
+</div>
 
-      // ──────── TASA BCV ────────
-      async function obtenerTasaBCV() {
-        try {
-          const resp = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-          const data = await resp.json();
-          tasaDolar = parseFloat(data.promedio);
-          document.getElementById('tasa-actual').innerHTML = `<i class="bi bi-bank me-1"></i>BCV: Bs ${tasaDolar.toFixed(2)}`;
-          calcularValores(); // Recalcular si ya había números
-        } catch (error) {
-          console.error("Error BCV:", error);
-          document.getElementById('tasa-actual').innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> BCV Error</span>`;
-        }
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+  (function() {
+    const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let tasaDolar = 1;
+    let flashIngresoActivo = false, flashVentasActivo = false;
+    let scannerIngreso = null, scannerVentas = null;
+    let productoActualIngreso = null;
+    let productoActualVenta = null; // { id, nombre, precio_venta, stock }
+
+    // Tasa BCV
+    async function obtenerTasaBCV() {
+      try {
+        const resp = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        const data = await resp.json();
+        tasaDolar = parseFloat(data.promedio);
+        document.getElementById('tasa-valor').textContent = `Bs ${tasaDolar.toFixed(2)}`;
+        calcularIngreso();
+      } catch (e) {
+        document.getElementById('tasa-valor').textContent = 'Error';
       }
-      obtenerTasaBCV();
+    }
+    obtenerTasaBCV();
 
-      // ──────── CÁLCULOS DE COSTOS Y GANANCIAS ────────
-      const inputCantidad = document.getElementById('cantidad');
-      const inputTotalBs = document.getElementById('costo-total-bs');
-      const inputPvpUsd = document.getElementById('pvp-usd');
+    // Cambio de pantalla
+    function cambiarModo(modo) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      if (modo === 'inicio') {
+        document.getElementById('screenInicio').classList.add('active');
+        detenerScanners();
+      } else if (modo === 'ingreso') {
+        document.getElementById('screenIngreso').classList.add('active');
+      } else if (modo === 'ventas') {
+        document.getElementById('screenVentas').classList.add('active');
+        cargarClientes();
+      }
+    }
+    window.cambiarModo = cambiarModo;
 
-      function calcularValores() {
-        if (tasaDolar === 1) return; // Esperar a que cargue la tasa real
+    function detenerScanners() {
+      if (scannerIngreso && scannerIngreso.isScanning) scannerIngreso.stop();
+      if (scannerVentas && scannerVentas.isScanning) scannerVentas.stop();
+      resetFlash('Ingreso'); resetFlash('Ventas');
+    }
 
-        const qty = parseInt(inputCantidad.value) || 1;
-        const totalBs = parseFloat(inputTotalBs.value) || 0;
-        const pvpUsd = parseFloat(inputPvpUsd.value) || 0;
+    // Utilidades flash
+    function resetFlash(tipo) {
+      if (tipo === 'Ingreso') {
+        flashIngresoActivo = false;
+        document.getElementById('btnFlashIngreso').classList.remove('active');
+        document.getElementById('btnFlashIngreso').innerHTML = '<i class="bi bi-lightning-charge"></i>';
+      } else {
+        flashVentasActivo = false;
+        document.getElementById('btnFlashVentas').classList.remove('active');
+        document.getElementById('btnFlashVentas').innerHTML = '<i class="bi bi-lightning-charge"></i>';
+      }
+    }
 
-        // 1. Costo por unidad
-        const unitarioBs = totalBs / qty;
-        costoUnitarioGlobalUsd = unitarioBs / tasaDolar; // Guardamos en variable global para la BD
-        
-        document.getElementById('preview-costo-unitario').innerHTML = 
-          `Costo Unitario: <strong class="text-danger">$${costoUnitarioGlobalUsd.toFixed(2)}</strong> <small class="text-muted">(Bs ${unitarioBs.toFixed(2)})</small>`;
-
-        // 2. Proyección de Ganancia
-        if (costoUnitarioGlobalUsd > 0 && pvpUsd > 0) {
-          const gananciaUsd = pvpUsd - costoUnitarioGlobalUsd;
-          const gananciaPct = (gananciaUsd / costoUnitarioGlobalUsd) * 100;
-          
-          let colorClass = gananciaUsd > 0 ? 'text-success' : 'text-danger';
-          let iconClass = gananciaUsd > 0 ? 'bi-graph-up-arrow' : 'bi-graph-down-arrow';
-          
-          document.getElementById('preview-ganancia').innerHTML = 
-            `<span class="${colorClass}"><i class="bi ${iconClass} me-1"></i>Ganancia: <strong>$${gananciaUsd.toFixed(2)}</strong> por und. <span class="badge bg-success ms-1">+${gananciaPct.toFixed(1)}%</span></span>`;
+    async function toggleFlash(tipo) {
+      const scanner = tipo === 'Ingreso' ? scannerIngreso : scannerVentas;
+      if (!scanner || !scanner.isScanning) return;
+      const activo = tipo === 'Ingreso' ? flashIngresoActivo : flashVentasActivo;
+      try {
+        await scanner.applyVideoConstraints({ advanced: [{ torch: !activo }] });
+        if (tipo === 'Ingreso') {
+          flashIngresoActivo = !activo;
+          const btn = document.getElementById('btnFlashIngreso');
+          btn.classList.toggle('active', flashIngresoActivo);
+          btn.innerHTML = flashIngresoActivo ? '<i class="bi bi-lightning-charge-fill"></i>' : '<i class="bi bi-lightning-charge"></i>';
         } else {
-          document.getElementById('preview-ganancia').innerHTML = `<span class="text-muted"><i class="bi bi-info-circle me-1"></i>Ingresa el precio de venta para ver la ganancia</span>`;
+          flashVentasActivo = !activo;
+          const btn = document.getElementById('btnFlashVentas');
+          btn.classList.toggle('active', flashVentasActivo);
+          btn.innerHTML = flashVentasActivo ? '<i class="bi bi-lightning-charge-fill"></i>' : '<i class="bi bi-lightning-charge"></i>';
         }
+      } catch (e) { console.error('Flash error:', e); }
+    }
+
+    // ================== INGRESO ==================
+    function calcularIngreso() {
+      const qty = parseInt(document.getElementById('cantidadIngreso').value) || 1;
+      const totalBs = parseFloat(document.getElementById('costoTotalBs').value) || 0;
+      const pvpUsd = parseFloat(document.getElementById('pvpUsdIngreso').value) || 0;
+      if (tasaDolar === 1) return;
+      const unitarioBs = totalBs / qty;
+      const unitarioUsd = unitarioBs / tasaDolar;
+      document.getElementById('previewCostoUnitario').innerHTML = `Costo unitario: <strong>$${unitarioUsd.toFixed(2)}</strong> (Bs ${unitarioBs.toFixed(2)})`;
+      if (unitarioUsd > 0 && pvpUsd > 0) {
+        const ganancia = pvpUsd - unitarioUsd;
+        const pct = (ganancia / unitarioUsd) * 100;
+        document.getElementById('previewGananciaIngreso').innerHTML = `📈 Ganancia: <strong>$${ganancia.toFixed(2)}</strong> <span class="badge-percent">${pct>=0?'+':''}${pct.toFixed(1)}%</span>`;
+      } else {
+        document.getElementById('previewGananciaIngreso').innerHTML = 'Ingresa PVP para ver ganancia';
       }
+    }
+    ['cantidadIngreso','costoTotalBs','pvpUsdIngreso'].forEach(id => {
+      document.getElementById(id).addEventListener('input', calcularIngreso);
+    });
 
-      // Escuchar cambios en tiempo real
-      inputCantidad.addEventListener('input', calcularValores);
-      inputTotalBs.addEventListener('input', calcularValores);
-      inputPvpUsd.addEventListener('input', calcularValores);
+    document.getElementById('btnFlashIngreso').addEventListener('click', () => toggleFlash('Ingreso'));
+    document.getElementById('btnScanIngreso').addEventListener('click', () => {
+      if (!scannerIngreso) scannerIngreso = new Html5Qrcode("readerIngreso");
+      scannerIngreso.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+        (text) => {
+          document.getElementById('codigoIngreso').value = text;
+          buscarProductoIngreso(text);
+          scannerIngreso.stop(); resetFlash('Ingreso');
+        }, (err) => {})
+      .catch(() => alert('Error de cámara'));
+    });
+    document.getElementById('btnBuscarIngreso').addEventListener('click', () => {
+      buscarProductoIngreso(document.getElementById('codigoIngreso').value.trim());
+    });
 
+    async function buscarProductoIngreso(codigo) {
+      const { data } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
+      if (data) {
+        productoActualIngreso = data;
+        document.getElementById('nombreIngreso').value = data.nombre;
+        document.getElementById('costoTotalBs').value = (parseFloat(data.precio_compra||0) * tasaDolar).toFixed(2);
+        document.getElementById('pvpUsdIngreso').value = parseFloat(data.precio_venta||0).toFixed(2);
+        calcularIngreso();
+        mostrarMensaje('Ingreso', 'Producto encontrado ✓', 'success');
+      } else {
+        productoActualIngreso = null;
+        document.getElementById('nombreIngreso').value = '';
+        mostrarMensaje('Ingreso', 'Producto nuevo', 'warning');
+      }
+    }
 
-      // ──────── ESCÁNER DE CÁMARA ────────
-      document.getElementById('btn-scan').addEventListener('click', () => {
-        if (!html5QrcodeScanner) {
-          html5QrcodeScanner = new Html5Qrcode("reader");
-          const config = { fps: 10, qrbox: { width: 250, height: 150 } };
-          
-          html5QrcodeScanner.start({ facingMode: "environment" }, config, 
-            (decodedText) => {
-              document.getElementById('codigo').value = decodedText;
-              buscarProducto(decodedText);
-              html5QrcodeScanner.stop();
-              document.getElementById('btn-scan').innerHTML = '<i class="bi bi-camera me-2"></i>Escanear otro producto';
-            },
-            (error) => { /* ignorar frames vacíos */ }
-          ).catch(err => alert("Error con la cámara. Verifica los permisos."));
+    document.getElementById('btnGuardarIngreso').addEventListener('click', async () => {
+      const codigo = document.getElementById('codigoIngreso').value.trim();
+      const nombre = document.getElementById('nombreIngreso').value.trim();
+      const pvp = parseFloat(document.getElementById('pvpUsdIngreso').value);
+      const cantidad = parseInt(document.getElementById('cantidadIngreso').value);
+      const totalBs = parseFloat(document.getElementById('costoTotalBs').value);
+      if (!codigo || !nombre || isNaN(pvp) || isNaN(cantidad) || totalBs <= 0) {
+        mostrarMensaje('Ingreso', 'Completa todos los campos', 'error'); return;
+      }
+      const unitarioUsd = (totalBs / cantidad) / tasaDolar;
+      const btn = document.getElementById('btnGuardarIngreso');
+      btn.disabled = true; btn.innerHTML = 'Guardando...';
+      try {
+        let prodId = productoActualIngreso?.id;
+        if (prodId) {
+          await supabase.from('productos').update({ nombre, precio_compra: unitarioUsd, precio_venta: pvp }).eq('id', prodId);
         } else {
-          html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, ...callbacks);
+          const { data: nuevo } = await supabase.from('productos').insert({ codigo_barras: codigo, nombre, precio_compra: unitarioUsd, precio_venta: pvp }).select().single();
+          prodId = nuevo.id;
         }
-      });
-
-      // ──────── BUSCAR PRODUCTO EN BD ────────
-      document.getElementById('btn-buscar').addEventListener('click', () => {
-        const codigo = document.getElementById('codigo').value.trim();
-        if (codigo) buscarProducto(codigo);
-      });
-
-      async function buscarProducto(codigo) {
-        mostrarMensaje('<span class="spinner-border spinner-border-sm me-2"></span>Buscando...', "text-primary");
-        const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
-        
-        if (data) {
-          productoIdActual = data.id;
-          document.getElementById('nombre').value = data.nombre;
-          
-          // Llenar datos anteriores para facilitar el trabajo
-          const costoAnteriorUsd = parseFloat(data.precio_compra || 0);
-          inputCantidad.value = 1; // Por defecto 1 unidad
-          inputTotalBs.value = (costoAnteriorUsd * tasaDolar).toFixed(2); // Convertir su costo anterior a Bs de hoy
-          inputPvpUsd.value = parseFloat(data.precio_venta || 0).toFixed(2);
-          
-          calcularValores();
-          mostrarMensaje('<i class="bi bi-check-circle me-1"></i>Producto encontrado', "text-success");
-        } else {
-          productoIdActual = null;
-          document.getElementById('nombre').value = "";
-          inputCantidad.value = "1";
-          inputTotalBs.value = "";
-          inputPvpUsd.value = "";
-          calcularValores();
-          mostrarMensaje('<i class="bi bi-star me-1"></i>Producto nuevo. Completa los datos.', "text-warning");
-        }
+        await supabase.from('entradas_inventario').insert({ producto_id: prodId, cantidad, precio_unitario: unitarioUsd });
+        mostrarMensaje('Ingreso', '¡Registrado! 🎉', 'success');
+        setTimeout(() => {
+          ['codigoIngreso','nombreIngreso','costoTotalBs','pvpUsdIngreso'].forEach(id => document.getElementById(id).value = '');
+          document.getElementById('cantidadIngreso').value = 1;
+          productoActualIngreso = null;
+          calcularIngreso();
+          btn.disabled = false; btn.innerHTML = '<i class="bi bi-save2"></i> Guardar en inventario';
+        }, 2000);
+      } catch (e) {
+        mostrarMensaje('Ingreso', 'Error de conexión', 'error');
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-save2"></i> Reintentar';
       }
+    });
 
-      // ──────── GUARDAR EN INVENTARIO ────────
-      document.getElementById('btn-guardar').addEventListener('click', async () => {
-        const codigo = document.getElementById('codigo').value.trim();
-        const nombre = document.getElementById('nombre').value.trim();
-        const pvpUsd = parseFloat(inputPvpUsd.value);
-        const cantidad = parseInt(inputCantidad.value);
+    // ================== VENTAS ==================
+    document.getElementById('btnFlashVentas').addEventListener('click', () => toggleFlash('Ventas'));
+    document.getElementById('btnScanVentas').addEventListener('click', () => {
+      if (!scannerVentas) scannerVentas = new Html5Qrcode("readerVentas");
+      scannerVentas.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } },
+        (text) => {
+          document.getElementById('codigoVenta').value = text;
+          buscarProductoVenta(text);
+          scannerVentas.stop(); resetFlash('Ventas');
+        }, (err) => {})
+      .catch(() => alert('Error de cámara'));
+    });
+    document.getElementById('btnBuscarVenta').addEventListener('click', () => {
+      buscarProductoVenta(document.getElementById('codigoVenta').value.trim());
+    });
 
-        if (!codigo || !nombre || isNaN(costoUnitarioGlobalUsd) || isNaN(pvpUsd) || isNaN(cantidad) || costoUnitarioGlobalUsd <= 0) {
-          mostrarMensaje("Por favor, llena todos los campos correctamente.", "text-danger");
-          return;
-        }
+    async function buscarProductoVenta(codigo) {
+      const { data } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).single();
+      if (!data) { mostrarMensaje('Venta', 'Producto no encontrado', 'error'); return; }
+      // Calcular stock
+      const { data: entradas } = await supabase.from('entradas_inventario').select('cantidad').eq('producto_id', data.id);
+      const totalEntradas = entradas?.reduce((sum, e) => sum + e.cantidad, 0) || 0;
+      const { data: ventas } = await supabase.from('ventas').select('cantidad').eq('producto_id', data.id);
+      const totalVendido = ventas?.reduce((sum, v) => sum + v.cantidad, 0) || 0;
+      const stock = totalEntradas - totalVendido;
+      productoActualVenta = { id: data.id, nombre: data.nombre, precio_venta: data.precio_venta, stock };
+      document.getElementById('nombreVenta').value = data.nombre;
+      document.getElementById('stockVenta').value = stock;
+      document.getElementById('precioVentaMostrar').value = parseFloat(data.precio_venta||0).toFixed(2);
+      actualizarTotalVenta();
+      mostrarMensaje('Venta', `Stock: ${stock}`, 'success');
+    }
 
-        const btn = document.getElementById('btn-guardar');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Registrando...';
+    document.getElementById('cantidadVenta').addEventListener('input', actualizarTotalVenta);
+    document.getElementById('tipoVenta').addEventListener('change', function() {
+      document.getElementById('seccionCliente').style.display = this.value === 'fiado' ? 'block' : 'none';
+    });
 
-        try {
-          let prodId = productoIdActual;
+    function actualizarTotalVenta() {
+      const cant = parseInt(document.getElementById('cantidadVenta').value) || 0;
+      const precio = parseFloat(document.getElementById('precioVentaMostrar').value) || 0;
+      document.getElementById('totalVenta').value = (cant * precio).toFixed(2);
+    }
 
-          // 1. Guardar o Actualizar el Catálogo
-          if (prodId) {
-            await supabase.from('productos').update({
-              nombre: nombre,
-              precio_compra: costoUnitarioGlobalUsd,
-              precio_venta: pvpUsd
-            }).eq('id', prodId);
-          } else {
-            const { data: nuevoProd, error: errInsert } = await supabase.from('productos').insert({
-              codigo_barras: codigo,
-              nombre: nombre,
-              precio_compra: costoUnitarioGlobalUsd,
-              precio_venta: pvpUsd
-            }).select().single();
-            
-            if (errInsert) throw errInsert;
-            prodId = nuevoProd.id;
-          }
+    async function cargarClientes() {
+      const { data } = await supabase.from('clientes').select('*').order('nombre');
+      const sel = document.getElementById('selectCliente');
+      sel.innerHTML = data?.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('') || '';
+    }
 
-          // 2. Registrar Entrada (Stock)
-          const { error: errEntrada } = await supabase.from('entradas_inventario').insert({
-            producto_id: prodId,
-            cantidad: cantidad,
-            precio_unitario: costoUnitarioGlobalUsd
-          });
-
-          if (errEntrada) throw errEntrada;
-
-          mostrarMensaje('<i class="bi bi-check2-all fs-4 d-block"></i>¡Registrado con éxito!', "text-success");
-          
-          // Limpiar formulario
-          setTimeout(() => {
-            document.getElementById('codigo').value = "";
-            document.getElementById('nombre').value = "";
-            inputCantidad.value = "1";
-            inputTotalBs.value = "";
-            inputPvpUsd.value = "";
-            productoIdActual = null;
-            document.getElementById('mensaje').innerHTML = "";
-            calcularValores();
-            
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-save me-2"></i>Guardar en Inventario';
-          }, 2500);
-
-        } catch (error) {
-          console.error(error);
-          mostrarMensaje('<i class="bi bi-x-circle me-1"></i>Error de conexión', "text-danger");
-          btn.disabled = false;
-          btn.innerHTML = '<i class="bi bi-save me-2"></i>Reintentar Guardado';
-        }
-      });
-
-      function mostrarMensaje(texto, clase) {
-        const msgDiv = document.getElementById('mensaje');
-        msgDiv.className = `mt-3 text-center fw-bold fs-6 ${clase}`;
-        msgDiv.innerHTML = texto;
+    document.getElementById('btnNuevoCliente').addEventListener('click', () => {
+      document.getElementById('modalCliente').style.display = 'flex';
+    });
+    document.getElementById('btnCancelarCliente').addEventListener('click', () => {
+      document.getElementById('modalCliente').style.display = 'none';
+      document.getElementById('inputNombreCliente').value = '';
+      document.getElementById('inputTelefonoCliente').value = '';
+    });
+    document.getElementById('btnGuardarCliente').addEventListener('click', async () => {
+      const nombre = document.getElementById('inputNombreCliente').value.trim();
+      const telefono = document.getElementById('inputTelefonoCliente').value.trim();
+      if (!nombre) return;
+      const { data } = await supabase.from('clientes').insert({ nombre, telefono }).select().single();
+      if (data) {
+        await cargarClientes();
+        document.getElementById('selectCliente').value = data.id;
+        document.getElementById('modalCliente').style.display = 'none';
+        document.getElementById('inputNombreCliente').value = '';
+        document.getElementById('inputTelefonoCliente').value = '';
       }
+    });
 
-    })();
-  </script>
+    document.getElementById('btnRegistrarVenta').addEventListener('click', async () => {
+      if (!productoActualVenta) { mostrarMensaje('Venta', 'Busca un producto primero', 'error'); return; }
+      const cantidad = parseInt(document.getElementById('cantidadVenta').value);
+      if (isNaN(cantidad) || cantidad <= 0) { mostrarMensaje('Venta', 'Cantidad inválida', 'error'); return; }
+      if (cantidad > productoActualVenta.stock) { mostrarMensaje('Venta', 'Stock insuficiente', 'error'); return; }
+      const tipo = document.getElementById('tipoVenta').value;
+      let clienteId = null;
+      if (tipo === 'fiado') {
+        clienteId = document.getElementById('selectCliente').value;
+        if (!clienteId) { mostrarMensaje('Venta', 'Selecciona un cliente', 'error'); return; }
+      }
+      const precio = parseFloat(document.getElementById('precioVentaMostrar').value);
+      const btn = document.getElementById('btnRegistrarVenta');
+      btn.disabled = true; btn.innerHTML = 'Registrando...';
+      try {
+        await supabase.from('ventas').insert({
+          producto_id: productoActualVenta.id,
+          cantidad,
+          precio_venta_usd: precio,
+          tipo_venta: tipo,
+          cliente_id: clienteId || null
+        });
+        mostrarMensaje('Venta', '¡Venta registrada! 💰', 'success');
+        productoActualVenta.stock -= cantidad;
+        document.getElementById('stockVenta').value = productoActualVenta.stock;
+        document.getElementById('cantidadVenta').value = 1;
+        actualizarTotalVenta();
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cart-check"></i> Registrar venta';
+      } catch (e) {
+        mostrarMensaje('Venta', 'Error al registrar', 'error');
+        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cart-check"></i> Reintentar';
+      }
+    });
+
+    function mostrarMensaje(tipo, texto, clase) {
+      const div = document.getElementById(tipo === 'Ingreso' ? 'mensajeIngreso' : 'mensajeVenta');
+      div.textContent = ''; div.className = '';
+      div.style.color = clase === 'success' ? '#059669' : clase === 'error' ? '#dc2626' : '#d97706';
+      div.innerHTML = texto;
+    }
+  })();
+</script>
 </body>
 </html>
