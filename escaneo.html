@@ -2,316 +2,468 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Escáner de bodega</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Panel Móvil - Bodega</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
+    :root {
+      --primary: #6750A4; /* Material 3 Purple */
+      --surface: #F3EDF7;
+      --bg: #121212;
+      --card-bg: #1E1E1E;
+      --text: #E6E1E5;
+    }
     body {
-      background: #212529;
-      color: white;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Roboto', sans-serif;
+      padding-bottom: 80px; /* Espacio para el nav inferior */
       touch-action: manipulation;
     }
-    .scanner-container { max-width: 400px; margin: auto; padding: 20px; }
-    #reader {
-      width: 100%;
-      border-radius: 15px;
-      overflow: hidden;
-      margin-bottom: 15px;
-      background: #000;
-      position: relative;
+    /* Estilos de App Nativa */
+    .app-header {
+      background: var(--card-bg);
+      padding: 15px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
     }
-    #reader::after {
-      content: '';
-      position: absolute;
-      top: 50%; left: 10%; width: 80%; height: 2px;
-      background: rgba(0, 255, 0, 0.7);
-      box-shadow: 0 0 8px rgba(0,255,0,0.5);
-      z-index: 10;
-      animation: scan-line 2s ease-in-out infinite alternate;
+    .bcv-badge {
+      background: rgba(103, 80, 164, 0.2);
+      color: #D0BCFF;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
     }
-    @keyframes scan-line {
-      from { transform: translateY(-15px); }
-      to { transform: translateY(15px); }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card-bg);
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
     }
-    .card { background: #343a40; border: none; }
-    .btn-detener, .btn-linterna { display: none; }
-    .resultado { background: #198754; padding: 10px; border-radius: 8px; }
-    .error { background: #dc3545; padding: 10px; border-radius: 8px; }
-    .warning { background: #ffc107; color: #000; padding: 10px; border-radius: 8px; }
+    .nav-item {
+      color: #938F99;
+      text-align: center;
+      font-size: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .nav-item.active { color: #D0BCFF; }
+    .nav-item.active i {
+      background: rgba(208, 188, 255, 0.2);
+      padding: 4px 20px;
+      border-radius: 16px;
+    }
+    .nav-item i { font-size: 1.5rem; transition: 0.2s; }
+    
+    /* Tarjetas y Formularios */
+    .card { background: var(--card-bg); border: none; border-radius: 16px; margin-top: 15px; }
+    .form-control, .form-select {
+      background: #2B2B2B; border: 1px solid #444; color: white; border-radius: 12px; padding: 12px;
+    }
+    .form-control:focus { background: #333; border-color: var(--primary); color: white; box-shadow: none; }
+    
+    /* Botón Flotante (FAB) */
+    .fab {
+      position: fixed; bottom: 90px; right: 20px;
+      background: #D0BCFF; color: #381E72;
+      width: 60px; height: 60px;
+      border-radius: 16px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      cursor: pointer; z-index: 999;
+    }
+    
+    /* Lector QR */
+    #reader { border-radius: 16px; overflow: hidden; background: #000; border: none; }
+    
+    /* Utilidades */
+    .view-section { display: none; padding: 15px; }
+    .view-section.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .modal-content { background: var(--card-bg); color: var(--text); border-radius: 20px; }
+    .modal-header { border-bottom: 1px solid #333; }
+    .modal-footer { border-top: 1px solid #333; }
   </style>
 </head>
 <body>
-  <div class="scanner-container">
-    <h2 class="text-center mb-3">📷 Escáner inteligente</h2>
-    <div id="reader"></div>
-    <div class="d-grid gap-2 mb-2">
-      <button id="btn-iniciar" class="btn btn-primary btn-lg">▶️ Iniciar cámara</button>
-      <button id="btn-detener" class="btn btn-outline-danger btn-detener">⏹️ Detener</button>
-      <button id="btn-linterna" class="btn btn-outline-warning btn-linterna">🔦 Linterna</button>
-    </div>
-    <div id="status-message"></div>
-    <div id="resultado-escaneo" class="mt-3"></div>
 
-    <div id="form-entrada" class="card mt-3 p-3" style="display: none;">
-      <h5 id="form-titulo" class="text-success">Producto encontrado</h5>
-      <p id="nombre-producto" class="fw-bold" style="display: none;"></p>
-      <div id="div-nuevo-producto" class="mb-2" style="display: none;">
-        <label class="form-label text-warning fw-bold">Nombre del nuevo producto *</label>
-        <input type="text" id="nuevo-nombre-movil" class="form-control bg-dark text-white border-warning" placeholder="Ej. Galletas Chokis 50g">
+  <div class="app-header">
+    <h5 class="m-0 fw-bold"><i class="bi bi-shop me-2"></i>BodegaApp</h5>
+    <div class="bcv-badge" id="tasa-bcv">BCV: Cargando...</div>
+  </div>
+
+  <div id="view-ingresos" class="view-section active">
+    <h4 class="mb-3">Registrar Ingreso</h4>
+    <div class="d-grid mb-3">
+      <button class="btn btn-primary rounded-pill py-3 fw-bold" onclick="abrirEscaner('ingreso')" style="background: var(--primary); border:none;">
+        <i class="bi bi-upc-scan me-2"></i> Escanear Producto
+      </button>
+    </div>
+    
+    <div id="form-ingreso" class="card p-3 shadow" style="display: none;">
+      <h6 id="ingreso-titulo" class="text-success mb-3">Producto Detectado</h6>
+      <input type="hidden" id="ingreso-codigo">
+      
+      <div class="mb-3" id="div-nombre-nuevo">
+        <label class="form-label text-muted small">Nombre del Producto</label>
+        <input type="text" id="ingreso-nombre" class="form-control" placeholder="Ej. Harina Pan 1kg">
       </div>
-      <div class="mb-2">
-        <label class="form-label">Cantidad</label>
-        <input type="number" id="cantidad-movil" class="form-control" min="1" value="1">
+      
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label text-muted small">Cantidad a sumar</label>
+          <input type="number" id="ingreso-cantidad" class="form-control" min="1" value="1">
+        </div>
+        <div class="col-6">
+          <label class="form-label text-muted small">Costo ($)</label>
+          <input type="number" id="ingreso-costo" class="form-control" step="0.01" min="0">
+        </div>
       </div>
-      <div class="mb-3">
-        <label class="form-label">Precio unitario ($)</label>
-        <input type="number" id="precio-movil" class="form-control" step="0.01" min="0" value="0.00">
+      
+      <div class="d-flex gap-2">
+        <button class="btn btn-success w-100 rounded-pill" onclick="guardarIngreso()">Guardar</button>
+        <button class="btn btn-outline-light rounded-pill px-4" onclick="cerrarFormulario('form-ingreso')">Cancelar</button>
       </div>
-      <button id="guardar-movil" class="btn btn-success w-100 fw-bold">💾 Guardar en Base de Datos</button>
-      <button id="cancelar-movil" class="btn btn-outline-light w-100 mt-2">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="view-ventas" class="view-section">
+    <h4 class="mb-3">Punto de Venta</h4>
+    
+    <div class="input-group mb-3">
+      <span class="input-group-text bg-dark border-secondary text-white"><i class="bi bi-search"></i></span>
+      <input type="text" id="buscar-producto" class="form-control" placeholder="Buscar por nombre o código..." oninput="filtrarProductosVenta()">
+    </div>
+    
+    <div id="lista-productos-venta" class="d-flex flex-column gap-2 mb-4"></div>
+    
+    <div class="fab" onclick="abrirEscaner('venta')">
+      <i class="bi bi-upc-scan"></i>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="cambiarVista('ingresos', this)">
+      <i class="bi bi-box-seam"></i><span>Ingresos</span>
+    </div>
+    <div class="nav-item" onclick="cambiarVista('ventas', this)">
+      <i class="bi bi-cart"></i><span>Ventas</span>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalEscaner" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Escaneando...</h5>
+          <button type="button" class="btn-close btn-close-white" onclick="cerrarEscaner()"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div id="reader"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalVenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title text-primary"><i class="bi bi-bag-check me-2"></i>Detalle de Venta</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <h4 id="venta-nombre" class="fw-bold text-center"></h4>
+          <input type="hidden" id="venta-producto-id">
+          
+          <div class="card p-3 bg-dark mb-3">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Costo Base:</span>
+              <span id="venta-costo" class="fw-bold"></span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Precio Venta (+3%):</span>
+              <span id="venta-precio-usd" class="text-success fw-bold fs-5"></span>
+            </div>
+            <hr class="border-secondary">
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">A Cobrar en Bs:</span>
+              <span id="venta-precio-bs" class="text-warning fw-bold fs-4"></span>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label text-muted small">Cantidad a vender</label>
+            <input type="number" id="venta-cantidad" class="form-control text-center fs-4" value="1" min="1">
+          </div>
+          
+          <ul class="nav nav-pills nav-fill gap-2 mb-3" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active rounded-pill" id="btn-tab-contado" data-bs-toggle="pill" data-bs-target="#tab-contado" type="button">Contado 💵</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link rounded-pill text-danger" id="btn-tab-fiado" data-bs-toggle="pill" data-bs-target="#tab-fiado" type="button">Fiar 📝</button>
+            </li>
+          </ul>
+          
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tab-contado">
+              <button class="btn btn-success w-100 rounded-pill py-3 fw-bold fs-5" onclick="procesarVenta('contado')">Confirmar Venta</button>
+            </div>
+            <div class="tab-pane fade" id="tab-fiado">
+              <select id="select-cliente" class="form-select mb-2">
+                <option value="">Seleccione un cliente...</option>
+              </select>
+              <button class="btn btn-outline-info w-100 mb-3 rounded-pill btn-sm" onclick="crearCliente()">+ Nuevo Cliente</button>
+              <button class="btn btn-danger w-100 rounded-pill py-3 fw-bold fs-5" onclick="procesarVenta('fiado')">Registrar Deuda</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    (function() {
-      console.log('🚀 Escáner Autónomo v4.0 - Anti-duplicados');
+    // Configuración Supabase (Usa tus credenciales reales)
+    const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
+    const SUPABASE_KEY = "TU_SUPABASE_ANON_KEY_AQUI"; // <-- REEMPLAZA ESTO
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      if (typeof Html5Qrcode === 'undefined' || typeof window.supabase === 'undefined') {
-        document.getElementById('status-message').innerHTML = '<div class="error">❌ Librerías no cargadas. Recarga.</div>';
-        return;
+    let html5QrCode = null;
+    let accionActual = ''; // 'ingreso' o 'venta'
+    let tasaBCV = 1;
+    let inventarioCache = [];
+    let modalVentaObj = null;
+    let modalEscanerObj = null;
+    let esNuevoProducto = false;
+
+    // Inicialización
+    window.onload = async () => {
+      modalVentaObj = new bootstrap.Modal(document.getElementById('modalVenta'));
+      modalEscanerObj = new bootstrap.Modal(document.getElementById('modalEscaner'));
+      await obtenerTasaBCV();
+      await cargarInventarioVentas();
+      await cargarClientes();
+    };
+
+    // Navegación UI
+    function cambiarVista(vistaId, elementoNav) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(`view-${vistaId}`).classList.add('active');
+      elementoNav.classList.add('active');
+    }
+
+    function cerrarFormulario(id) { document.getElementById(id).style.display = 'none'; }
+
+    // Tasa BCV
+    async function obtenerTasaBCV() {
+      try {
+        const resp = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        const data = await resp.json();
+        tasaBCV = parseFloat(data.promedio);
+        document.getElementById('tasa-bcv').textContent = `BCV: Bs ${tasaBCV.toFixed(2)}`;
+      } catch (e) { console.error("Error BCV", e); }
+    }
+
+    // Escáner
+    function abrirEscaner(accion) {
+      accionActual = accion;
+      modalEscanerObj.show();
+      setTimeout(() => {
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+          { facingMode: "environment" }, 
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (codigoText) => {
+            if (navigator.vibrate) navigator.vibrate(200);
+            cerrarEscaner();
+            procesarCodigoEscaneado(codigoText.trim());
+          },
+          (err) => {}
+        ).catch(err => alert("Error de cámara"));
+      }, 300);
+    }
+
+    function cerrarEscaner() {
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => { html5QrCode.clear(); });
       }
+      modalEscanerObj.hide();
+    }
 
-      const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      let html5QrCode = null;
-      let productoActual = null;
-      let codigoEscaneadoActual = "";
-      let esProductoNuevo = false;
-      let linternaEncendida = false;
-
-      const btnIniciar = document.getElementById('btn-iniciar');
-      const btnDetener = document.getElementById('btn-detener');
-      const btnLinterna = document.getElementById('btn-linterna');
-      const statusMsg = document.getElementById('status-message');
-      const resultadoDiv = document.getElementById('resultado-escaneo');
-      const formDiv = document.getElementById('form-entrada');
-
-      const formatsToSupport = [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ];
-
-      function limpiarCodigo(raw) {
-        return raw.replace(/[^\dA-Za-z\-\.]/g, '').trim(); // deja solo dígitos, letras, guiones y puntos
-      }
-
-      async function stopCamera() {
-        if (html5QrCode && (html5QrCode.isScanning || (html5QrCode.getState && html5QrCode.getState() === 2))) {
-          try { await html5QrCode.stop(); } catch (e) { console.warn(e); }
+    async function procesarCodigoEscaneado(codigo) {
+      const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).maybeSingle();
+      
+      if (accionActual === 'ingreso') {
+        document.getElementById('form-ingreso').style.display = 'block';
+        document.getElementById('ingreso-codigo').value = codigo;
+        document.getElementById('ingreso-cantidad').value = 1;
+        
+        if (data) {
+          esNuevoProducto = false;
+          document.getElementById('ingreso-titulo').textContent = "📝 Actualizar Stock: " + data.nombre;
+          document.getElementById('ingreso-titulo').className = "text-primary mb-3 fw-bold";
+          document.getElementById('ingreso-nombre').value = data.nombre;
+          document.getElementById('ingreso-nombre').disabled = true;
+          document.getElementById('ingreso-costo').value = data.precio_compra || '';
+        } else {
+          esNuevoProducto = true;
+          document.getElementById('ingreso-titulo').textContent = "🆕 Producto Nuevo Encontrado";
+          document.getElementById('ingreso-titulo').className = "text-warning mb-3 fw-bold";
+          document.getElementById('ingreso-nombre').value = "";
+          document.getElementById('ingreso-nombre').disabled = false;
+          document.getElementById('ingreso-costo').value = "";
         }
-        html5QrCode = null;
-        btnIniciar.style.display = 'block';
-        btnDetener.style.display = 'none';
-        btnLinterna.style.display = 'none';
-        linternaEncendida = false;
-        btnLinterna.textContent = '🔦 Linterna';
+      } else if (accionActual === 'venta') {
+        if (!data) return alert("❌ Producto no registrado en el sistema.");
+        abrirModalVenta(data);
       }
+    }
 
-      async function toggleTorch() {
-        if (!html5QrCode || !html5QrCode.isScanning) return;
-        try {
-          const capabilities = html5QrCode.getRunningTrackCapabilities();
-          if (capabilities && capabilities.torch) {
-            linternaEncendida = !linternaEncendida;
-            await html5QrCode.applyVideoConstraints({ advanced: [{ torch: linternaEncendida }] });
-            btnLinterna.textContent = linternaEncendida ? '💡 Apagar linterna' : '🔦 Linterna';
-          } else { alert('Linterna no soportada.'); }
-        } catch (e) { console.error(e); }
-      }
+    // Guardar Ingreso (Agrega costo)
+    async function guardarIngreso() {
+      const codigo = document.getElementById('ingreso-codigo').value;
+      const nombre = document.getElementById('ingreso-nombre').value;
+      const cantidad = parseInt(document.getElementById('ingreso-cantidad').value);
+      const costo = parseFloat(document.getElementById('ingreso-costo').value);
 
-      async function startCamera() {
-        await stopCamera();
-        statusMsg.innerHTML = '';
-        resultadoDiv.innerHTML = '';
-        formDiv.style.display = 'none';
-        productoActual = null;
-        codigoEscaneadoActual = "";
-        esProductoNuevo = false;
+      if (!nombre || isNaN(cantidad) || isNaN(costo)) return alert("Llene todos los campos correctamente");
 
-        try {
-          html5QrCode = new Html5Qrcode("reader");
-          const config = {
-            fps: 12,
-            qrbox: { width: 280, height: 120 },
-            aspectRatio: 1.777,
-            formatsToSupport: formatsToSupport,
-          };
-
-          await html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText) => {
-              if (navigator.vibrate) navigator.vibrate(200);
-              html5QrCode.stop().then(() => {
-                btnIniciar.style.display = 'block';
-                btnDetener.style.display = 'none';
-                btnLinterna.style.display = 'none';
-                const codigoLimpio = limpiarCodigo(decodedText);
-                buscarProducto(codigoLimpio);
-              }).catch(err => console.warn(err));
-            },
-            (errorMessage) => {}
-          );
-
-          btnIniciar.style.display = 'none';
-          btnDetener.style.display = 'block';
-          try {
-            const track = html5QrCode.getRunningTrackCapabilities();
-            if (track && track.torch) btnLinterna.style.display = 'block';
-          } catch (e) {}
-          statusMsg.innerHTML = '<div class="text-info">🔍 Apunta al código de barras...</div>';
-        } catch (err) {
-          console.error(err);
-          statusMsg.innerHTML = `<div class="error">❌ No se pudo iniciar cámara: ${err.message || err}</div>`;
+      let productoId;
+      try {
+        if (esNuevoProducto) {
+          const { data: pNuevo, error: eNuevo } = await supabase.from('productos')
+            .insert({ codigo_barras: codigo, nombre, precio_compra: costo }).select().single();
+          if (eNuevo) throw eNuevo;
+          productoId = pNuevo.id;
+        } else {
+          const { data: pExist } = await supabase.from('productos').select('id').eq('codigo_barras', codigo).single();
+          productoId = pExist.id;
+          // Actualizamos el costo base
+          await supabase.from('productos').update({ precio_compra: costo }).eq('id', productoId);
         }
-      }
 
-      async function buscarProducto(codigo) {
-        codigoEscaneadoActual = codigo;
-        statusMsg.innerHTML = '';
+        // Registrar entrada
+        await supabase.from('entradas_inventario').insert({
+          producto_id: productoId, cantidad, precio_unitario: costo
+        });
 
-        try {
-          const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).maybeSingle();
+        alert("✅ Ingreso registrado con éxito");
+        cerrarFormulario('form-ingreso');
+        cargarInventarioVentas(); // Refrescar la lista de ventas
+      } catch (err) { alert("Error: " + err.message); }
+    }
 
-          if (error || !data) {
-            // No existe → modo nuevo
-            esProductoNuevo = true;
-            productoActual = null;
+    // Funciones de Venta
+    async function cargarInventarioVentas() {
+      const { data } = await supabase.from('productos').select('*');
+      inventarioCache = data || [];
+      filtrarProductosVenta();
+    }
 
-            resultadoDiv.innerHTML = `<div class="warning">⚠️ Código [${codigo}] NO registrado.</div>`;
-            document.getElementById('form-titulo').textContent = "🆕 Registrar Nuevo Producto";
-            document.getElementById('form-titulo').className = "text-warning fw-bold";
-            document.getElementById('nombre-producto').style.display = 'none';
-            document.getElementById('div-nuevo-producto').style.display = 'block';
-            document.getElementById('nuevo-nombre-movil').value = '';
-            document.getElementById('cantidad-movil').value = 1;
-            document.getElementById('precio-movil').value = '0.00';
-            formDiv.style.display = 'block';
-            document.getElementById('nuevo-nombre-movil').focus();
-          } else {
-            // Existe
-            esProductoNuevo = false;
-            productoActual = data;
-            resultadoDiv.innerHTML = `<div class="resultado">✅ Producto detectado correctamente</div>`;
-            document.getElementById('form-titulo').textContent = "✅ Registrar Entrada";
-            document.getElementById('form-titulo').className = "text-success fw-bold";
-            document.getElementById('div-nuevo-producto').style.display = 'none';
-            document.getElementById('nombre-producto').style.display = 'block';
-            document.getElementById('nombre-producto').textContent = data.nombre;
-            document.getElementById('cantidad-movil').value = 1;
-            document.getElementById('precio-movil').value = data.precio_compra || 0;
-            formDiv.style.display = 'block';
-          }
-        } catch (err) {
-          console.error(err);
-          resultadoDiv.innerHTML = '<div class="error">Error al conectar con Supabase.</div>';
-        }
-      }
-
-      document.getElementById('guardar-movil').addEventListener('click', async () => {
-        const cantidad = parseInt(document.getElementById('cantidad-movil').value);
-        const precio = parseFloat(document.getElementById('precio-movil').value);
-        if (isNaN(cantidad) || cantidad <= 0) return alert('Cantidad inválida');
-        if (isNaN(precio) || precio < 0) return alert('Precio inválido');
-
-        try {
-          let productoId = null;
-          let nombreFinal = "";
-
-          if (esProductoNuevo) {
-            const nombreNuevo = document.getElementById('nuevo-nombre-movil').value.trim();
-            if (!nombreNuevo) return alert('Debes escribir un nombre para el producto nuevo');
-            nombreFinal = nombreNuevo;
-
-            // Intentar insertar el nuevo producto
-            const { data: nuevoProd, error: errProd } = await client.from('productos').insert({
-              codigo_barras: codigoEscaneadoActual,
-              nombre: nombreNuevo,
-              precio_compra: precio
-            }).select().single();
-
-            // Si falla por duplicado, buscar el producto existente
-            if (errProd) {
-              if (errProd.code === '23505') { // unique violation
-                console.warn('Conflicto de duplicado, buscando producto existente...');
-                const { data: existente, error: errBusq } = await client.from('productos')
-                  .select('*').eq('codigo_barras', codigoEscaneadoActual).single();
-                if (existente) {
-                  productoActual = existente;
-                  productoId = existente.id;
-                  nombreFinal = existente.nombre;
-                  esProductoNuevo = false; // ahora es existente
-                  // actualizar precio de referencia
-                  await client.from('productos').update({ precio_compra: precio }).eq('id', productoId);
-                } else {
-                  throw errProd; // otro error
-                }
-              } else {
-                throw errProd;
-              }
-            } else {
-              productoId = nuevoProd.id;
-            }
-          } else {
-            productoId = productoActual.id;
-            nombreFinal = productoActual.nombre;
-            await client.from('productos').update({ precio_compra: precio }).eq('id', productoId);
-          }
-
-          // Insertar entrada de inventario
-          const { error: errEntrada } = await client.from('entradas_inventario').insert({
-            producto_id: productoId,
-            cantidad: cantidad,
-            precio_unitario: precio
-          });
-          if (errEntrada) throw errEntrada;
-
-          alert(`🎉 Guardado: ${cantidad} uds. de "${nombreFinal}"`);
-          formDiv.style.display = 'none';
-          resultadoDiv.innerHTML = '';
-          productoActual = null;
-          esProductoNuevo = false;
-          btnIniciar.style.display = 'block';
-
-        } catch (err) {
-          console.error(err);
-          alert('Error: ' + err.message);
-        }
+    function filtrarProductosVenta() {
+      const query = document.getElementById('buscar-producto').value.toLowerCase();
+      const div = document.getElementById('lista-productos-venta');
+      div.innerHTML = '';
+      
+      const filtrados = inventarioCache.filter(p => p.nombre.toLowerCase().includes(query) || (p.codigo_barras && p.codigo_barras.includes(query))).slice(0, 5); // Mostrar solo 5 para no saturar UI móvil
+      
+      filtrados.forEach(p => {
+        const divItem = document.createElement('div');
+        divItem.className = 'card p-3 d-flex flex-row justify-content-between align-items-center shadow-sm';
+        divItem.style.cursor = 'pointer';
+        divItem.onclick = () => abrirModalVenta(p);
+        divItem.innerHTML = `
+          <div><div class="fw-bold">${p.nombre}</div><div class="small text-muted">Costo: $${p.precio_compra}</div></div>
+          <i class="bi bi-cart-plus text-primary fs-4"></i>
+        `;
+        div.appendChild(divItem);
       });
+    }
 
-      document.getElementById('cancelar-movil').addEventListener('click', () => {
-        formDiv.style.display = 'none';
-        resultadoDiv.innerHTML = '';
-        productoActual = null;
-        esProductoNuevo = false;
-        btnIniciar.style.display = 'block';
+    let productoVentaActual = null;
+    let precioVentaUsdActual = 0;
+
+    function abrirModalVenta(producto) {
+      productoVentaActual = producto;
+      const costo = parseFloat(producto.precio_compra || 0);
+      precioVentaUsdActual = costo * 1.03; // +3% Ganancia
+      const precioBs = precioVentaUsdActual * tasaBCV;
+
+      document.getElementById('venta-nombre').textContent = producto.nombre;
+      document.getElementById('venta-costo').textContent = `$${costo.toFixed(2)}`;
+      document.getElementById('venta-precio-usd').textContent = `$${precioVentaUsdActual.toFixed(2)}`;
+      document.getElementById('venta-precio-bs').textContent = `Bs ${precioBs.toFixed(2)}`;
+      document.getElementById('venta-cantidad').value = 1;
+      
+      modalVentaObj.show();
+    }
+
+    // Clientes y Fiados
+    async function cargarClientes() {
+      const { data } = await supabase.from('clientes').select('*').order('nombre');
+      const select = document.getElementById('select-cliente');
+      select.innerHTML = '<option value="">Seleccione un cliente...</option>';
+      (data || []).forEach(c => {
+        select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
       });
+    }
 
-      btnIniciar.addEventListener('click', startCamera);
-      btnDetener.addEventListener('click', stopCamera);
-      btnLinterna.addEventListener('click', toggleTorch);
-      window.addEventListener('load', () => { btnIniciar.style.display = 'block'; });
-    })();
+    async function crearCliente() {
+      const nombre = prompt("Nombre del nuevo cliente:");
+      if (!nombre) return;
+      const tel = prompt("Teléfono (Opcional):") || '';
+      await supabase.from('clientes').insert({ nombre, telefono: tel });
+      alert("Cliente registrado");
+      await cargarClientes();
+    }
+
+    async function procesarVenta(tipo) {
+      const cant = parseInt(document.getElementById('venta-cantidad').value);
+      if (isNaN(cant) || cant <= 0) return alert("Cantidad inválida");
+
+      let clienteId = null;
+      if (tipo === 'fiado') {
+        clienteId = document.getElementById('select-cliente').value;
+        if (!clienteId) return alert("Debes seleccionar un cliente para fiar.");
+      }
+
+      try {
+        const { error } = await supabase.from('ventas').insert({
+          producto_id: productoVentaActual.id,
+          cantidad: cant,
+          precio_venta_usd: precioVentaUsdActual,
+          tipo_venta: tipo,
+          cliente_id: clienteId
+        });
+        if (error) throw error;
+        
+        alert(`✅ Venta procesada (${tipo.toUpperCase()}) exitosamente.`);
+        modalVentaObj.hide();
+      } catch (err) { alert("Error al registrar venta: " + err.message); }
+    }
   </script>
 </body>
 </html>
