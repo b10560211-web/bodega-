@@ -245,10 +245,10 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // Configuración Supabase (Usa tus credenciales reales)
+    // Configuración Supabase (Corregida la variable a 'client')
     const SUPABASE_URL = "https://omgfilhksmfvbprzejxg.supabase.co";
-    const SUPABASE_KEY = "TU_SUPABASE_ANON_KEY_AQUI"; // <-- REEMPLAZA ESTO
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ2ZpbGhrc21mdmJwcnplanhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzU0NTgsImV4cCI6MjA5ODk1MTQ1OH0.6JpnsUYiuLJ_Jty_PtBSOFxfbLl0r7reiYnnvXoBJpQ";
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let html5QrCode = null;
     let accionActual = ''; // 'ingreso' o 'venta'
@@ -314,7 +314,7 @@
     }
 
     async function procesarCodigoEscaneado(codigo) {
-      const { data, error } = await supabase.from('productos').select('*').eq('codigo_barras', codigo).maybeSingle();
+      const { data, error } = await client.from('productos').select('*').eq('codigo_barras', codigo).maybeSingle();
       
       if (accionActual === 'ingreso') {
         document.getElementById('form-ingreso').style.display = 'block';
@@ -354,19 +354,19 @@
       let productoId;
       try {
         if (esNuevoProducto) {
-          const { data: pNuevo, error: eNuevo } = await supabase.from('productos')
+          const { data: pNuevo, error: eNuevo } = await client.from('productos')
             .insert({ codigo_barras: codigo, nombre, precio_compra: costo }).select().single();
           if (eNuevo) throw eNuevo;
           productoId = pNuevo.id;
         } else {
-          const { data: pExist } = await supabase.from('productos').select('id').eq('codigo_barras', codigo).single();
+          const { data: pExist } = await client.from('productos').select('id').eq('codigo_barras', codigo).single();
           productoId = pExist.id;
           // Actualizamos el costo base
-          await supabase.from('productos').update({ precio_compra: costo }).eq('id', productoId);
+          await client.from('productos').update({ precio_compra: costo }).eq('id', productoId);
         }
 
         // Registrar entrada
-        await supabase.from('entradas_inventario').insert({
+        await client.from('entradas_inventario').insert({
           producto_id: productoId, cantidad, precio_unitario: costo
         });
 
@@ -378,7 +378,7 @@
 
     // Funciones de Venta
     async function cargarInventarioVentas() {
-      const { data } = await supabase.from('productos').select('*');
+      const { data } = await client.from('productos').select('*');
       inventarioCache = data || [];
       filtrarProductosVenta();
     }
@@ -388,7 +388,7 @@
       const div = document.getElementById('lista-productos-venta');
       div.innerHTML = '';
       
-      const filtrados = inventarioCache.filter(p => p.nombre.toLowerCase().includes(query) || (p.codigo_barras && p.codigo_barras.includes(query))).slice(0, 5); // Mostrar solo 5 para no saturar UI móvil
+      const filtrados = inventarioCache.filter(p => p.nombre.toLowerCase().includes(query) || (p.codigo_barras && p.codigo_barras.includes(query))).slice(0, 5); 
       
       filtrados.forEach(p => {
         const divItem = document.createElement('div');
@@ -423,7 +423,7 @@
 
     // Clientes y Fiados
     async function cargarClientes() {
-      const { data } = await supabase.from('clientes').select('*').order('nombre');
+      const { data } = await client.from('clientes').select('*').order('nombre');
       const select = document.getElementById('select-cliente');
       select.innerHTML = '<option value="">Seleccione un cliente...</option>';
       (data || []).forEach(c => {
@@ -435,7 +435,7 @@
       const nombre = prompt("Nombre del nuevo cliente:");
       if (!nombre) return;
       const tel = prompt("Teléfono (Opcional):") || '';
-      await supabase.from('clientes').insert({ nombre, telefono: tel });
+      await client.from('clientes').insert({ nombre, telefono: tel });
       alert("Cliente registrado");
       await cargarClientes();
     }
@@ -451,7 +451,7 @@
       }
 
       try {
-        const { error } = await supabase.from('ventas').insert({
+        const { error } = await client.from('ventas').insert({
           producto_id: productoVentaActual.id,
           cantidad: cant,
           precio_venta_usd: precioVentaUsdActual,
